@@ -16,7 +16,7 @@ import pymongo
 import gevent
 
 from lib import config, util, events, blockchain, util_bitcoin
-from lib.components import assets, betting
+from lib.components import assets, betting, btc_escrow
 
 D = decimal.Decimal
 
@@ -33,11 +33,11 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
         mongo_db.asset_market_info.drop()
         mongo_db.asset_marketcap_history.drop()
         mongo_db.pair_market_info.drop()
-        mongo_db.btc_open_orders.drop()
         mongo_db.asset_extended_info.drop()
         mongo_db.transaction_stats.drop()
         mongo_db.feeds.drop()
         mongo_db.wallet_stats.drop()
+        mongo_db.mempool.drop()
         
         #create/update default app_config object
         mongo_db.app_config.update({}, {
@@ -256,6 +256,10 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
             cur_block['block_time_obj'] = datetime.datetime.utcfromtimestamp(cur_block['block_time'])
             cur_block['block_time_str'] = cur_block['block_time_obj'].isoformat()
             
+            #HANDLERS FOR ON EACH NEW BLOCK
+            btc_escrow.on_new_block(mongo_db, cur_block_index, cur_block)
+            
+            #FOR EACH MESSAGE
             try:
                 block_data = util.call_jsonrpc_api("get_messages",
                     {'block_index': cur_block_index}, abort_on_error=True)['result']
@@ -426,6 +430,14 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
 
                     mongo_db.trades.insert(trade)
                     logging.info("Procesed Trade from tx %s :: %s" % (msg['message_index'], trade))
+                
+                #btc_escrow
+                if msg['category'] == 'orders':
+                    btc_escrow.parse_order(mongo_db, msg_data, cur_block_index, cur_block)
+                if msg['category'] == 'order_matches':
+                    btc_escrow.parse_order_match(mongo_db, msg_data, cur_block_index, cur_block)
+                if msg['category'] == 'order_expirations':
+                    btc_escrow.parse_order_expiration(mongo_db, msg_data, cur_block_index, cur_block)
                 
                 #broadcast
                 if msg['category'] == 'broadcasts':

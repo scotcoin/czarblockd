@@ -42,10 +42,16 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', help='specify to explicitly override the directory in which to keep the config file and log file')
     parser.add_argument('--config-file', help='the location of the configuration file')
     parser.add_argument('--log-file', help='the location of the log file')
-    parser.add_argument('--tx-log-file', help='the location of the transaction log file')
+    parser.add_argument('--tx-log-file', help='the location of the RPC API transaction log file')
+    parser.add_argument('--csp-violations-log-file', help='the location of the CSP violations log file')
     parser.add_argument('--pid-file', help='the location of the pid file')
 
     #THINGS WE CONNECT TO
+    parser.add_argument('--backend-rpc-connect', help='the hostname or IP of the backend bitcoind JSON-RPC server')
+    parser.add_argument('--backend-rpc-port', type=int, help='the backend JSON-RPC port to connect to')
+    parser.add_argument('--backend-rpc-user', help='the username used to communicate with backend over JSON-RPC')
+    parser.add_argument('--backend-rpc-password', help='the password used to communicate with backend over JSON-RPC')
+
     parser.add_argument('--counterpartyd-rpc-connect', help='the hostname of the counterpartyd JSON-RPC server')
     parser.add_argument('--counterpartyd-rpc-port', type=int, help='the port used to communicate with counterpartyd over JSON-RPC')
     parser.add_argument('--counterpartyd-rpc-user', help='the username used to communicate with counterpartyd over JSON-RPC')
@@ -65,7 +71,9 @@ if __name__ == '__main__':
     parser.add_argument('--redis-port', type=int, help='the port used to connect to the redis server for caching (if enabled)')
     parser.add_argument('--redis-database', type=int, help='the redis database ID (int) used to connect to the redis server for caching (if enabled)')
 
+    #enablement (move out to plugins in the future)
     parser.add_argument('--armory-utxsvr-enable', help='enable use of armory_utxsvr service (for signing offline armory txns')
+    parser.add_argument('--auto-btc-escrow-enable', help='enable this counterblockd to act as an auto BTC escrow server')
 
     #THINGS WE HOST
     parser.add_argument('--rpc-host', help='the IP of the interface to bind to for providing JSON-RPC API access (0.0.0.0 for all interfaces)')
@@ -81,7 +89,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--support-email', help='the email address where support requests should go')
     parser.add_argument('--email-server', help='the email server to send support requests out from. Defaults to \'localhost\'')
-
+    
     args = parser.parse_args()
 
     # Data directory
@@ -111,6 +119,57 @@ if __name__ == '__main__':
     ##############
     # THINGS WE CONNECT TO
 
+    # backend (e.g. bitcoind) RPC host
+    if args.counterpartyd_rpc_connect:
+        config.BACKEND_RPC_CONNECT = args.backend_rpc_connect
+    elif has_config and configfile.has_option('Default', 'backend-rpc-connect') and configfile.get('Default', 'backend-rpc-connect'):
+        config.BACKEND_RPC_CONNECT = configfile.get('Default', 'backend-rpc-connect')
+    elif has_config and configfile.has_option('Default', 'bitcoind-rpc-connect') and configfile.get('Default', 'bitcoind-rpc-connect'):
+        config.BACKEND_RPC_CONNECT = configfile.get('Default', 'bitcoind-rpc-connect')
+    else:
+        config.BACKEND_RPC_CONNECT = 'localhost'
+
+    # backend (e.g. bitcoind) RPC port
+    if args.backend_rpc_port:
+        config.BACKEND_RPC_PORT = args.backend_rpc_port
+    elif has_config and configfile.has_option('Default', 'backend-rpc-port') and configfile.get('Default', 'backend-rpc-port'):
+        config.BACKEND_RPC_PORT = configfile.get('Default', 'backend-rpc-port')
+    elif has_config and configfile.has_option('Default', 'bitcoind-rpc-port') and configfile.get('Default', 'bitcoind-rpc-port'):
+        config.BACKEND_RPC_PORT = configfile.get('Default', 'bitcoind-rpc-port')
+    else:
+        if config.TESTNET:
+            config.BACKEND_RPC_PORT = config.DEFAULT_BACKEND_RPC_PORT_TESTNET
+        else:
+            config.BACKEND_RPC_PORT = config.DEFAULT_BACKEND_RPC_PORT
+    try:
+        config.BACKEND_RPC_PORT = int(config.BACKEND_RPC_PORT)
+        assert int(config.BACKEND_RPC_PORT) > 1 and int(config.BACKEND_RPC_PORT) < 65535
+    except:
+        raise Exception("Please specific a valid port number backend-rpc-port configuration parameter")
+            
+    # backend (e.g. bitcoind) RPC user
+    if args.backend_rpc_user:
+        config.BACKEND_RPC_USER = args.backend_rpc_user
+    elif has_config and configfile.has_option('Default', 'backend-rpc-user') and configfile.get('Default', 'backend-rpc-user'):
+        config.BACKEND_RPC_USER = configfile.get('Default', 'backend-rpc-user')
+    elif has_config and configfile.has_option('Default', 'bitcoind-rpc-user') and configfile.get('Default', 'bitcoind-rpc-user'):
+        config.BACKEND_RPC_USER = configfile.get('Default', 'bitcoind-rpc-user')
+    else:
+        config.BACKEND_RPC_USER = 'rpcuser'
+
+    # backend (e.g. bitcoind) RPC password
+    if args.backend_rpc_password:
+        config.BACKEND_RPC_PASSWORD = args.backend_rpc_password
+    elif has_config and configfile.has_option('Default', 'backend-rpc-password') and configfile.get('Default', 'backend-rpc-password'):
+        config.BACKEND_RPC_PASSWORD = configfile.get('Default', 'backend-rpc-password')
+    elif has_config and configfile.has_option('Default', 'bitcoind-rpc-password') and configfile.get('Default', 'bitcoind-rpc-password'):
+        config.BACKEND_RPC_PASSWORD = configfile.get('Default', 'bitcoind-rpc-password')
+    else:
+        config.BACKEND_RPC_PASSWORD = 'rpcpassword'
+
+    config.BACKEND_RPC = 'http://' + config.BACKEND_RPC_CONNECT + ':' + str(config.BACKEND_RPC_PORT) + '/'
+    config.BACKEND_AUTH = (config.BACKEND_RPC_USER, config.BACKEND_RPC_PASSWORD) if (config.BACKEND_RPC_USER and config.BACKEND_RPC_PASSWORD) else None
+
     # counterpartyd RPC host
     if args.counterpartyd_rpc_connect:
         config.COUNTERPARTYD_RPC_CONNECT = args.counterpartyd_rpc_connect
@@ -126,9 +185,9 @@ if __name__ == '__main__':
         config.COUNTERPARTYD_RPC_PORT = configfile.get('Default', 'counterpartyd-rpc-port')
     else:
         if config.TESTNET:
-            config.COUNTERPARTYD_RPC_PORT = 14000
+            config.COUNTERPARTYD_RPC_PORT = config.DEFAULT_COUNTERPARTYD_RPC_PORT_TESTNET
         else:
-            config.COUNTERPARTYD_RPC_PORT = 4000
+            config.COUNTERPARTYD_RPC_PORT = config.DEFAULT_COUNTERPARTYD_RPC_PORT
     try:
         config.COUNTERPARTYD_RPC_PORT = int(config.COUNTERPARTYD_RPC_PORT)
         assert int(config.COUNTERPARTYD_RPC_PORT) > 1 and int(config.COUNTERPARTYD_RPC_PORT) < 65535
@@ -264,13 +323,21 @@ if __name__ == '__main__':
     except:
         raise Exception("Please specific a valid redis-database configuration parameter (between 0 and 16 inclusive)")
 
-    # redis connect
+    # armory unsigned transaction server enablement
     if args.armory_utxsvr_enable:
         config.ARMORY_UTXSVR_ENABLE = args.armory_utxsvr_enable
     elif has_config and configfile.has_option('Default', 'armory-utxsvr-enable') and configfile.getboolean('Default', 'armory-utxsvr-enable'):
         config.ARMORY_UTXSVR_ENABLE = configfile.get('Default', 'armory-utxsvr-enable')
     else:
         config.ARMORY_UTXSVR_ENABLE = False
+
+    #auto BTC escrow enablement
+    if args.auto_btc_escrow_enable:
+        config.AUTO_BTC_ESCROW_ENABLE = args.auto_btc_escrow_enable
+    elif has_config and configfile.has_option('Default', 'auto-btc-escrow-enable') and configfile.getboolean('Default', 'auto-btc-escrow-enable'):
+        config.AUTO_BTC_ESCROW_ENABLE = configfile.get('Default', 'auto-btc-escrow-enable')
+    else:
+        config.AUTO_BTC_ESCROW_ENABLE = False
 
 
     ##############
@@ -366,7 +433,7 @@ if __name__ == '__main__':
     else:
         config.BLOCK_FIRST = 278270
 
-    # Log
+    # Log files
     if args.log_file:
         config.LOG = args.log_file
     elif has_config and configfile.has_option('Default', 'log-file'):
@@ -381,6 +448,12 @@ if __name__ == '__main__':
     else:
         config.TX_LOG = os.path.join(config.DATA_DIR, 'counterblockd-tx.log')
     
+    if args.csp_violations_log_file:
+        config.CSP_VIOLATIONS_LOG = args.csp_violations_log_file
+    elif has_config and configfile.has_option('Default', 'csp-violations-log-file'):
+        config.CSP_VIOLATIONS_LOG = configfile.get('Default', 'csp-violations-log-file')
+    else:
+        config.CSP_VIOLATIONS_LOG = os.path.join(config.DATA_DIR, 'counterblockd-csp-violations.log')
 
     # PID
     if args.pid_file:
@@ -467,7 +540,7 @@ if __name__ == '__main__':
     socketio_log.setLevel(logging.DEBUG if args.verbose else logging.WARNING)
     socketio_log.propagate = False
     #Transaction log
-    tx_logger = logging.getLogger("transaction_log") #get transaction logger
+    tx_logger = logging.getLogger("transaction_log")
     tx_logger.setLevel(logging.DEBUG if args.verbose else logging.INFO)
     if os.name == 'nt':
         tx_fileh = util_windows.SanitizedRotatingFileHandler(config.TX_LOG, maxBytes=MAX_LOG_SIZE, backupCount=MAX_LOG_COUNT)
@@ -478,17 +551,28 @@ if __name__ == '__main__':
     tx_fileh.setFormatter(tx_formatter)
     tx_logger.addHandler(tx_fileh)
     tx_logger.propagate = False
+    #CSP violations log
+    csp_violations_logger = logging.getLogger("csp_violations_log")
+    csp_violations_logger.setLevel(logging.DEBUG if args.verbose else logging.INFO)
+    if os.name == 'nt':
+        csp_violations_fileh = util_windows.SanitizedRotatingFileHandler(config.CSP_VIOLATIONS_LOG, maxBytes=MAX_LOG_SIZE, backupCount=MAX_LOG_COUNT)
+    else:
+        csp_violations_fileh = logging.handlers.RotatingFileHandler(config.CSP_VIOLATIONS_LOG, maxBytes=MAX_LOG_SIZE, backupCount=MAX_LOG_COUNT)
+    csp_violations_fileh.setLevel(logging.DEBUG if args.verbose else logging.INFO)
+    csp_violations_formatter = logging.Formatter('%(asctime)s %(message)s', '%Y-%m-%d-T%H:%M:%S%z')
+    csp_violations_fileh.setFormatter(csp_violations_formatter)
+    csp_violations_logger.addHandler(csp_violations_fileh)
+    csp_violations_logger.propagate = False
     
-    #xnova(7/16/2014): Disable for now, as this uses requests under the surface, which may not be safe for a gevent-based app
     #rollbar integration
-    #if config.ROLLBAR_TOKEN:
-    #    logging.info("Rollbar support enabled. Logging for environment: %s" % config.ROLLBAR_ENV)
-    #    rollbar.init(config.ROLLBAR_TOKEN, config.ROLLBAR_ENV, allow_logging_basic_config=False)
-    #    
-    #    def report_errors(ex_cls, ex, tb):
-    #        rollbar.report_exc_info((ex_cls, ex, tb))
-    #        raise ex #re-raise
-    #    sys.excepthook = report_errors
+    if config.ROLLBAR_TOKEN:
+        logging.info("Rollbar support enabled. Logging for environment: %s" % config.ROLLBAR_ENV)
+        rollbar.init(config.ROLLBAR_TOKEN, config.ROLLBAR_ENV, allow_logging_basic_config=False)
+        
+        def report_errors(ex_cls, ex, tb):
+            rollbar.report_exc_info((ex_cls, ex, tb))
+            raise ex #re-raise
+        sys.excepthook = report_errors
 
     # GeoIP
     config.GEOIP = util.init_geoip()
@@ -553,9 +637,6 @@ if __name__ == '__main__':
     #asset_extended_info
     mongo_db.asset_extended_info.ensure_index('asset', unique=True)
     mongo_db.asset_extended_info.ensure_index('info_status')
-    #btc_open_orders
-    mongo_db.btc_open_orders.ensure_index('when_created')
-    mongo_db.btc_open_orders.ensure_index('order_tx_hash', unique=True)
     #transaction_stats
     mongo_db.transaction_stats.ensure_index([ #blockfeed.py, api.py
         ("when", pymongo.ASCENDING),
@@ -568,6 +649,8 @@ if __name__ == '__main__':
         ("when", pymongo.ASCENDING),
         ("network", pymongo.ASCENDING),
     ])
+    #mempool
+    mongo_db.mempool.ensure_index('tx_hash')
     
     ##COLLECTIONS THAT ARE *NOT* PURGED AS A RESULT OF A REPARSE
     #preferences
@@ -595,9 +678,16 @@ if __name__ == '__main__':
     mongo_db.feeds.ensure_index('owner')
     mongo_db.feeds.ensure_index('category')
     mongo_db.feeds.ensure_index('info_url')
-
-    #mempool
-    mongo_db.mempool.ensure_index('tx_hash')
+    #autobtcescrow_orders
+    mongo_db.autobtcescrow_orders.ensure_index('order_tx_hash')
+    mongo_db.autobtcescrow_orders.ensure_index([
+        ("wallet_id", pymongo.ASCENDING),
+        ("order_match_ids", pymongo.ASCENDING),
+    ])
+    #autobtcescrow_addresspool
+    mongo_db.autobtcescrow_addresspool.ensure_index('last_used')
+    #autobtcescrow_pending_payments
+    mongo_db.autobtcescrow_pending_payments.ensure_index('target_block_index')
 
     #Connect to redis
     if config.REDIS_ENABLE_APICACHE:
@@ -633,8 +723,6 @@ if __name__ == '__main__':
     gevent.spawn(events.check_blockchain_service)
     logging.debug("Starting event timer: expire_stale_prefs")
     gevent.spawn(events.expire_stale_prefs)
-    logging.debug("Starting event timer: expire_stale_btc_open_order_records")
-    gevent.spawn(events.expire_stale_btc_open_order_records)
     logging.debug("Starting event timer: generate_wallet_stats")
     gevent.spawn(events.generate_wallet_stats)
 

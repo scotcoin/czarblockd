@@ -4,6 +4,7 @@ import re
 import time
 import datetime
 import base64
+import socket
 import decimal
 import operator
 import logging
@@ -22,6 +23,7 @@ from jsonrpc import dispatcher
 import pymongo
 from bson import json_util
 from bson.son import SON
+from bson.objectid import ObjectId
 
 from lib import config, siofeeds, util, blockchain, util_bitcoin
 from lib.components import betting, rps, assets_trading, dex
@@ -32,6 +34,7 @@ API_MAX_LOG_COUNT = 10
 
 decimal.setcontext(decimal.Context(prec=8, rounding=decimal.ROUND_HALF_EVEN))
 D = decimal.Decimal
+hostname = socket.gethostname()
 
 
 def serve_api(mongo_db, redis_client):
@@ -42,7 +45,8 @@ def serve_api(mongo_db, redis_client):
     
     DEFAULT_COUNTERPARTYD_API_CACHE_PERIOD = 60 #in seconds
     app = flask.Flask(__name__)
-    tx_logger = logging.getLogger("transaction_log") #get transaction logger
+    tx_logger = logging.getLogger("transaction_log")
+    csp_violations_logger = logging.getLogger("csp_violations_log")
     
     @dispatcher.add_method
     def is_ready():
@@ -777,14 +781,6 @@ def serve_api(mongo_db, redis_client):
             # indexes and display datetimes instead)
             o['block_time'] = time.mktime(util.get_block_time(o['block_index']).timetuple()) * 1000
             
-        #for orders where BTC is the give asset, also return online status of the user
-        for o in orders:
-            if o['give_asset'] == config.BTC:
-                r = mongo_db.btc_open_orders.find_one({'order_tx_hash': o['tx_hash']})
-                o['_is_online'] = (r['wallet_id'] in siofeeds.onlineClients) if r else False
-            else:
-                o['_is_online'] = None #does not apply in this case
-
         result = {
             'base_bid_book': base_bid_book,
             'base_ask_book': base_ask_book,
@@ -1098,28 +1094,6 @@ def serve_api(mongo_db, redis_client):
         if reverse: final_history.reverse()
         return final_history
 
-    @dispatcher.add_method
-    def record_btc_open_order(wallet_id, order_tx_hash):
-        """Records an association between a wallet ID and order TX ID for a trade where BTC is being SOLD, to allow
-        buyers to see which sellers of the BTC are "online" (which can lead to a better result as a BTCpay will be required
-        to complete any trades where BTC is involved, and the seller (or at least their wallet) must be online for this to happen"""
-        #ensure the wallet_id exists
-        result =  mongo_db.preferences.find_one({"wallet_id": wallet_id})
-        if not result: raise Exception("WalletID does not exist")
-        
-        mongo_db.btc_open_orders.insert({
-            'wallet_id': wallet_id,
-            'order_tx_hash': order_tx_hash,
-            'when_created': datetime.datetime.utcnow()
-        })
-        return True
-
-    @dispatcher.add_method
-    def cancel_btc_open_order(wallet_id, order_tx_hash):
-        mongo_db.btc_open_orders.remove({'order_tx_hash': order_tx_hash, 'wallet_id': wallet_id})
-        #^ wallet_id is used more for security here so random folks can't remove orders from this collection just by tx hash
-        return True
-    
     @dispatcher.add_method
     def get_balance_history(asset, addresses, normalize=True, start_ts=None, end_ts=None):
         """Retrieves the ordered balance history for a given address (or list of addresses) and asset pair, within the specified date range
@@ -1493,6 +1467,65 @@ def serve_api(mongo_db, redis_client):
         server.sendmail(from_email, config.SUPPORT_EMAIL, msg.as_string())
         return True
 
+    @dispatcher.add_method
+    def autobtcescrow_create(order_tx_hash, btc_deposit_tx_hash, wallet_id=None):
+        now = datetime.datetime.utcnow()
+        if mongo_db.autobtcescrow_addresspool.count() < config.AUTOBTCESCROW_ADDRESS_POOL_MAX_SIZE:
+            escrow_address = util.call_jsonrpc_api('getnewaddress', params=None,
+                endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)
+            loggng.debug("AutoBTCEscrow: Creating new address %s for BTC deposit hash %s" % (escrow_address, btc_deposit_tx_hash))
+            mongo_db.autobtcescrow_addresspool.insert({
+                'address': escrow_address,
+                'when_created': now,
+                'last_used': now
+            })
+        else: #get the last used address
+            address_record = mongo_db.autobtcescrow_addresspool.find().sort({'last_used': pymongo.ASCENDING})[0]
+            escrow_address = address_record['address']
+            loggng.debug("AutoBTCEscrow: Using existing address %s for BTC deposit hash %s" % (escrow_address, btc_deposit_tx_hash))
+        assert escrow_address
+        
+        #actuall create the escrow record (keep in mind that the referenced btc tx hash may not have
+        # propagated at the time this API call is made, so we can't do much with it beyond record it ATM)
+        record_id = mongo_db.autobtcescrow_orders.insert({
+            'order_tx_hash': order_tx_hash,
+            'btc_deposit_tx_hash': btc_deposit_tx_hash,
+            'source_address': None, #still unknown (comes from order and btc deposit tx -- should/must match)
+            'escrow_address': escrow_address,
+            'when_created': now,
+            'wallet_id': wallet_id,
+            'remaining_amount': 0,
+            'user_ip': flask.request.headers.get('X-Real-Ip', flask.request.remote_addr),
+            'order_actual_amount': None, #still unknown, will be set once we see the order in the blockchain
+            'order_expire_index': None, #still unknown
+            'funded_order_matches': [],
+            'status': 'new', #statuses are: 'new', 'open', 'invalid', 'expired', 'cancelled', and 'filled'
+            'refund_tx_hash': None #only set when status == 'expired' or status == 'cancelled'
+        })
+        return {'escrow_address': escrow_address, 'record_id': str(record_id), 'escrow_host': hostname}
+    
+    @dispatcher.add_method
+    def autobtcescrow_get_by_record_id(record_ids):
+        #mongo record ids are UUIDs, so they are hard to guess, so we should be fine with someone trying to glean database
+        # contents to be able to, for instance, determine how much BTC a given escrow server is managing at any given time
+        records = mongo_db.autobtcescrow_orders.find_one({'_id': {'$in': record_ids}})
+        result = {}
+        for r in records:
+            result[str(r['_id'])] = r
+            del r['_id'] 
+        return result
+
+    @dispatcher.add_method
+    def autobtcescrow_get_by_order_match_id(order_match_ids, wallet_id):
+        #wallet ID is required to be supplied, and only records that match the order_match_id AND wallet_id will be returned
+        #this prevents people from snooping the server
+        records = mongo_db.autobtcescrow_orders.find_one({'wallet_id': wallet_id, 'order_match_ids': {'$in': order_match_ids}}, {'_id': 0})
+        result = {}        
+        for r in records:
+            result[str(r['_id'])] = r
+            del r['_id'] 
+        return result
+
     def _set_cors_headers(response):
         if config.RPC_ALLOW_CORS:
             response.headers['Access-Control-Allow-Origin'] = '*'
@@ -1506,21 +1539,27 @@ def serve_api(mongo_db, redis_client):
         _set_cors_headers(response)
         return response
     
+    @app.route('/_report_csp/', methods=["GET",])
+    def handle_csp_report():
+        try:
+            data_json = flask.request.get_data().decode('utf-8')
+            data = json.loads(data_json)
+            assert 'csp-report' in data
+        except Exception, e:
+            obj_error = jsonrpc.exceptions.JSONRPCInvalidRequest(data="Invalid JSON-RPC 2.0 request format")
+            return flask.Response(obj_error.json.encode(), 200, mimetype='application/json')
+        
+        csp_violations_logger.info("***CSP SECURITY VIOLATION --- %s" % data_json)
+        
+        #log out via rollbar if rollbar support is enabled
+        if config.ROLLBAR_TOKEN:
+            rollbar.report_message("CSP SECURITY VIOLATION", 'warning', extra_data=data_json)
+        
+        return flask.Response('', 200)
+
     @app.route('/', methods=["GET",])
     @app.route('/api/', methods=["GET",])
     def handle_get():
-        if flask.request.headers.get("Content-Type", None) == 'application/csp-report':
-            try:
-                data_json = flask.request.get_data().decode('utf-8')
-                data = json.loads(data_json)
-                assert 'csp-report' in data
-            except Exception, e:
-                obj_error = jsonrpc.exceptions.JSONRPCInvalidRequest(data="Invalid JSON-RPC 2.0 request format")
-                return flask.Response(obj_error.json.encode(), 200, mimetype='application/json')
-            
-            tx_logger.info("***CSP SECURITY --- %s" % data_json)
-            return flask.Response('', 200)
-        
         #"ping" counterpartyd to test
         cpd_s = time.time()
         cpd_result_valid = True
@@ -1614,9 +1653,20 @@ def serve_api(mongo_db, redis_client):
         #log the request data
         try:
             assert 'method' in request_data
-            tx_logger.info("TRANSACTION --- %s ||| REQUEST: %s ||| RESPONSE: %s" % (request_data['method'], request_json, rpc_response_json))
+            tx_logger.info("TRANSACTION --- %s ||| REQUEST: %s ||| RESPONSE: %s" % (
+                request_data['method'], request_json, rpc_response_json))
         except Exception, e:
             logging.info("Could not log transaction: Invalid format: %s" % e)
+
+        #log out via rollbar if an error and rollbar support is enabled
+        if config.ROLLBAR_TOKEN and 'error' in rpc_response:
+            rollbar.report_message("JSON-RPC request failed", 'warning',
+              extra_data={
+                'method': request_data['method'],
+                'request': request_data,
+                'response': rpc_response.data
+              }
+            )
             
         response = flask.Response(rpc_response_json, 200, mimetype='application/json')
         _set_cors_headers(response)
