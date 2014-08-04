@@ -1468,12 +1468,11 @@ def serve_api(mongo_db, redis_client):
         return True
 
     @dispatcher.add_method
-    def autobtcescrow_create(order_tx_hash, btc_deposit_tx_hash, wallet_id=None):
-        now = datetime.datetime.utcnow()
+    def autobtcescrow_get_escrow_address():
         if mongo_db.autobtcescrow_addresspool.count() < config.AUTOBTCESCROW_ADDRESS_POOL_MAX_SIZE:
             escrow_address = util.call_jsonrpc_api('getnewaddress', params=None,
                 endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)
-            loggng.debug("AutoBTCEscrow: Creating new address %s for BTC deposit hash %s" % (escrow_address, btc_deposit_tx_hash))
+            loggng.debug("AutoBTCEscrow: Creating new address %s for order TX hash %s" % (escrow_address, order_tx_hash))
             mongo_db.autobtcescrow_addresspool.insert({
                 'address': escrow_address,
                 'when_created': now,
@@ -1482,27 +1481,43 @@ def serve_api(mongo_db, redis_client):
         else: #get the last used address
             address_record = mongo_db.autobtcescrow_addresspool.find().sort({'last_used': pymongo.ASCENDING})[0]
             escrow_address = address_record['address']
-            loggng.debug("AutoBTCEscrow: Using existing address %s for BTC deposit hash %s" % (escrow_address, btc_deposit_tx_hash))
+            loggng.debug("AutoBTCEscrow: Using existing address %s for order TX hash %s" % (escrow_address, order_tx_hash))
         assert escrow_address
+        return escrow_address
+
+    @dispatcher.add_method
+    def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_deposit_tx_hash):
+        now = datetime.datetime.utcnow()
         
-        #actuall create the escrow record (keep in mind that the referenced btc tx hash may not have
+        #ensure that the specified escrow address is valid for us
+        if not mongo_db.autobtcescrow_addresspool.find_one({'address': escrow_address}):
+            raise Exception("The specified escrow address does not exist on this system!")
+        
+        #ensure the specified btc_deposit_tx_hash is not associated with another record
+        if mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash}):
+            raise Exception("The specified btc_deposit_tx_hash is already associated with another escrow record!")
+        
+        #actually create the escrow record (keep in mind that the referenced btc tx hash may not have
         # propagated at the time this API call is made, so we can't do much with it beyond record it ATM)
         record_id = mongo_db.autobtcescrow_orders.insert({
+            #set now:
+            'wallet_id': wallet_id,
             'order_tx_hash': order_tx_hash,
+            'signed_order_tx_hash': signed_order_tx_hash,
+            #^ the order TX hash signed by the PK (in base64 format) to the order source address. will be validated when the order has 1 confirm
             'btc_deposit_tx_hash': btc_deposit_tx_hash,
-            'source_address': None, #still unknown (comes from order and btc deposit tx -- should/must match)
             'escrow_address': escrow_address,
             'when_created': now,
-            'wallet_id': wallet_id,
-            'remaining_amount': 0,
             'user_ip': flask.request.headers.get('X-Real-Ip', flask.request.remote_addr),
-            'order_actual_amount': None, #still unknown, will be set once we see the order in the blockchain
-            'order_expire_index': None, #still unknown
-            'funded_order_matches': [],
             'status': 'new', #statuses are: 'new', 'open', 'invalid', 'expired', 'cancelled', and 'filled'
+            #set on order 1st confirmation:
+            'remaining_amount': 0,
+            'order_expire_index': None,
+            #set in some other condition:
+            'funded_order_matches': [],
             'refund_tx_hash': None #only set when status == 'expired' or status == 'cancelled'
         })
-        return {'escrow_address': escrow_address, 'record_id': str(record_id), 'escrow_host': hostname}
+        return {'record_id': str(record_id), 'escrow_host': hostname}
     
     @dispatcher.add_method
     def autobtcescrow_get_by_record_id(record_ids):
