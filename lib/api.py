@@ -1476,7 +1476,7 @@ def serve_api(mongo_db, redis_client):
             now = datetime.datetime.utcnow()            
             escrow_address = util.call_jsonrpc_api('getnewaddress', params=['',],
                 endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
-            logging.debug("AutoBTCEscrow: Creating new address %s" % (escrow_address,))
+            logging.info("AutoBTCEscrow: Creating new address %s" % (escrow_address,))
             mongo_db.autobtcescrow_addresspool.insert({
                 'address': escrow_address,
                 'when_created': now,
@@ -1490,14 +1490,15 @@ def serve_api(mongo_db, redis_client):
         return escrow_address
 
     @dispatcher.add_method
-    def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_deposit_tx_hash):
+    def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_btc_send_signed_tx):
         #ensure that the specified escrow address is valid for us
         if not mongo_db.autobtcescrow_addresspool.find_one({'address': escrow_address}):
             raise Exception("The specified escrow address does not exist on this system!")
         
-        #ensure the specified btc_deposit_tx_hash is not associated with another record
-        if mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash}):
-            raise Exception("The specified btc_deposit_tx_hash is already associated with another escrow record!")
+        #broadcast the signed tx server-side and get the txhash
+        btc_deposit_tx_hash = util.call_jsonrpc_api('sendrawtransaction', params=[btc_btc_send_signed_tx,],
+            endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
+        assert not mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash})
         
         #actually create the escrow record (keep in mind that the referenced btc tx hash may not have
         # propagated at the time this API call is made, so we can't do much with it beyond record it ATM)
@@ -1520,6 +1521,7 @@ def serve_api(mongo_db, redis_client):
             'funded_order_matches': [],
             'refund_tx_hash': None #only set when status == 'expired' or status == 'cancelled'
         })
+        logging.info("AutoBTCEscrow: Escrow record '%s' created. BTC send txhash is %s" % (str(record_id), btc_deposit_tx_hash,))
         return {'record_id': str(record_id), 'escrow_host': hostname}
     
     @dispatcher.add_method
