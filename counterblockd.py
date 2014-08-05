@@ -564,6 +564,21 @@ if __name__ == '__main__':
     csp_violations_logger.addHandler(csp_violations_fileh)
     csp_violations_logger.propagate = False
     
+    #Load in counterwallet config settings
+    #TODO: Hardcode in cw path for now. Will be taken out to a plugin shortly...
+    counterwallet_config_path = os.path.join('/home/xcp/counterwallet/counterwallet.conf.json')
+    if os.path.exists(counterwallet_config_path):
+        logging.info("Loading counterwallet config at '%s'" % counterwallet_config_path)
+        with open(counterwallet_config_path) as f:
+            config.COUNTERWALLET_CONFIG_JSON = f.read()
+    else:
+        logging.warn("Counterwallet config does not exist at '%s'" % counterwallet_config_path)
+        config.COUNTERWALLET_CONFIG_JSON = '{}'
+    try:
+        config.COUNTERWALLET_CONFIG = json.loads(config.COUNTERWALLET_CONFIG_JSON)
+    except Exception, e:
+        logging.error("Exception loading counterwallet config: %s" % e)
+    
     #rollbar integration
     if config.ROLLBAR_TOKEN:
         logging.info("Rollbar support enabled. Logging for environment: %s" % config.ROLLBAR_ENV)
@@ -702,7 +717,7 @@ if __name__ == '__main__':
     zmq_context = zmq.Context()
     zmq_publisher_eventfeed = zmq_context.socket(zmq.PUB)
     zmq_publisher_eventfeed.bind('inproc://queue_eventfeed')
-
+    
     logging.info("Starting up socket.io server (block event feed)...")
     sio_server = socketio_server.SocketIOServer(
         (config.SOCKETIO_HOST, config.SOCKETIO_PORT),

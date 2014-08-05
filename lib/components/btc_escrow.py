@@ -66,11 +66,8 @@ def parse_order(db, message, cur_block_index, cur_block):
     record.save()
 
 def parse_order_match(db, message, cur_block_index, cur_block):
-    #this all needs to be idempotent, due to the fact that we may be processing off of a reparse
-    
     if not config.AUTO_BTC_ESCROW_ENABLE:
         return
-    
     #is it for a BTC order that requires a BTCpay?
     if message['status'] != 'pending':
         return
@@ -110,8 +107,6 @@ def parse_order_match(db, message, cur_block_index, cur_block):
     })
     
 def _parse_order_expiration_or_cancellation(db, message, cur_block_index, cur_block, isCancellation=True):
-    #this all needs to be idempotent, due to the fact that we may be processing off of a reparse
-
     if not config.AUTO_BTC_ESCROW_ENABLE:
         return
     
