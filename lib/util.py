@@ -109,16 +109,16 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
             network_timeout=JSONRPC_API_REQUEST_TIMEOUT)
         r = client.post(u.request_uri, body=json.dumps(payload), headers=headers)
     except Exception, e:
-        raise Exception("Got call_jsonrpc_api request error: %s" % e)
+        raise Exception("Got request error to JSON RPC endpoint: %s" % e)
     else:
         if r.status_code != 200 and abort_on_error:
-            raise Exception("Bad status code returned from counterpartyd: '%s'. result body: '%s'." % (r.status_code, r.read()))
+            raise Exception("Bad status code returned from JSON RPC endpoint: '%s'. result body: '%s'." % (r.status_code, r.read()))
         result = json.loads(r.read())
     finally:
         client.close()
     
-    if abort_on_error and 'error' in result:
-        raise Exception("Got back error from server: %s" % result['error'])
+    if abort_on_error and 'error' in result and result['error'] is not None:
+        raise Exception("Got back error from JSON RPC endpoint: %s" % result['error'])
     return result
 
 def get_url(url, abort_on_error=False, is_json=True, fetch_timeout=5):

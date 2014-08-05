@@ -1473,9 +1473,10 @@ def serve_api(mongo_db, redis_client):
     @dispatcher.add_method
     def autobtcescrow_get_escrow_address():
         if mongo_db.autobtcescrow_addresspool.count() < config.AUTOBTCESCROW_ADDRESS_POOL_MAX_SIZE:
-            escrow_address = util.call_jsonrpc_api('getnewaddress', params=None,
-                endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)
-            loggng.debug("AutoBTCEscrow: Creating new address %s for order TX hash %s" % (escrow_address, order_tx_hash))
+            now = datetime.datetime.utcnow()            
+            escrow_address = util.call_jsonrpc_api('getnewaddress', params=['',],
+                endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
+            logging.debug("AutoBTCEscrow: Creating new address %s" % (escrow_address,))
             mongo_db.autobtcescrow_addresspool.insert({
                 'address': escrow_address,
                 'when_created': now,
@@ -1484,14 +1485,12 @@ def serve_api(mongo_db, redis_client):
         else: #get the last used address
             address_record = mongo_db.autobtcescrow_addresspool.find().sort({'last_used': pymongo.ASCENDING})[0]
             escrow_address = address_record['address']
-            loggng.debug("AutoBTCEscrow: Using existing address %s for order TX hash %s" % (escrow_address, order_tx_hash))
+            logging.debug("AutoBTCEscrow: Using existing address %s" % (escrow_address,))
         assert escrow_address
         return escrow_address
 
     @dispatcher.add_method
     def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_deposit_tx_hash):
-        now = datetime.datetime.utcnow()
-        
         #ensure that the specified escrow address is valid for us
         if not mongo_db.autobtcescrow_addresspool.find_one({'address': escrow_address}):
             raise Exception("The specified escrow address does not exist on this system!")
@@ -1510,10 +1509,11 @@ def serve_api(mongo_db, redis_client):
             #^ the order TX hash signed by the PK (in base64 format) to the order source address. will be validated when the order has 1 confirm
             'btc_deposit_tx_hash': btc_deposit_tx_hash,
             'escrow_address': escrow_address,
-            'when_created': now,
+            'when_created': datetime.datetime.utcnow(),
             'user_ip': flask.request.headers.get('X-Real-Ip', flask.request.remote_addr),
             'status': 'new', #statuses are: 'new', 'open', 'invalid', 'expired', 'cancelled', and 'filled'
             #set on order 1st confirmation:
+            'source_address': None,
             'remaining_amount': 0,
             'order_expire_index': None,
             #set in some other condition:
@@ -1534,14 +1534,41 @@ def serve_api(mongo_db, redis_client):
         return result
 
     @dispatcher.add_method
-    def autobtcescrow_get_by_order_match_id(order_match_ids, wallet_id):
+    def autobtcescrow_get_by_funded_order_match_id(order_match_ids, wallet_id, status='open'):
         #wallet ID is required to be supplied, and only records that match the order_match_id AND wallet_id will be returned
         #this prevents people from snooping the server
-        records = mongo_db.autobtcescrow_orders.find_one({'wallet_id': wallet_id, 'order_match_ids': {'$in': order_match_ids}}, {'_id': 0})
+        records = mongo_db.autobtcescrow_orders.find({'order_match_ids': {'$in': order_match_ids}, 'status': status}, {'_id': 0})
         result = {}        
         for r in records:
-            result[str(r['_id'])] = r
-            del r['_id'] 
+            if r['wallet_id'] != wallet_id: continue
+            for m in r['funded_order_matches']:
+                if m in order_match_ids:
+                    result[m] = r
+        return result
+        #^ may have some needless duplication in the results (if querying multiple order match ids to the same entry, for instance)
+
+    @dispatcher.add_method
+    def autobtcescrow_get_by_source_address(addresses, wallet_id, status='open'):
+        #wallet ID is required to be supplied, and only records that match the order_match_id AND wallet_id will be returned
+        #this prevents people from snooping the server
+        records = mongo_db.autobtcescrow_orders.find({'source_address': {'$in': addresses}, 'status': status}, {'_id': 0})
+        result = {}
+        for r in records:
+            if r['wallet_id'] != wallet_id: continue
+            if r['source_address'] not in result: result[r['source_address']] = []
+            result[r['source_address']].append(r)
+        return result
+
+    @dispatcher.add_method
+    def autobtcescrow_get_escrow_balance_by_source_address(addresses, wallet_id):
+        #wallet ID is required to be supplied, and only records that match the order_match_id AND wallet_id will be returned
+        #this prevents people from snooping the server
+        records = mongo_db.autobtcescrow_orders.find({'source_address': {'$in': addresses}, 'status': {'$in': ['open', 'invalid']}}, {'_id': 0})
+        result = {}
+        for r in records:
+            if r['wallet_id'] != wallet_id: continue
+            if r['source_address'] not in result: result[r['source_address']] = 0
+            result[r['source_address']] += r['remaining_amount']
         return result
 
     def _set_cors_headers(response):

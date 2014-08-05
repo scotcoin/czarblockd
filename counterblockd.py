@@ -694,11 +694,16 @@ if __name__ == '__main__':
     mongo_db.feeds.ensure_index('category')
     mongo_db.feeds.ensure_index('info_url')
     #autobtcescrow_orders
-    mongo_db.autobtcescrow_orders.ensure_index('order_tx_hash')
-    mongo_db.autobtcescrow_orders.ensure_index('btc_deposit_tx_hash')
+    mongo_db.autobtcescrow_orders.ensure_index('order_tx_hash', unique=True)
+    mongo_db.autobtcescrow_orders.ensure_index('btc_deposit_tx_hash', unique=True)
+    mongo_db.autobtcescrow_orders.ensure_index('source_address')
     mongo_db.autobtcescrow_orders.ensure_index([
-        ("wallet_id", pymongo.ASCENDING),
+        ("source_address", pymongo.ASCENDING),
+        ("status", pymongo.ASCENDING),
+    ])
+    mongo_db.autobtcescrow_orders.ensure_index([
         ("order_match_ids", pymongo.ASCENDING),
+        ("status", pymongo.ASCENDING),
     ])
     #autobtcescrow_addresspool
     mongo_db.autobtcescrow_addresspool.ensure_index('address')

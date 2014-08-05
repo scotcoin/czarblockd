@@ -58,6 +58,7 @@ def parse_order(db, message, cur_block_index, cur_block):
         return
     
     record['status'] = 'open'
+    record['source_address'] = message['source']
     record['order_expire_index'] = message['expire_index']
     assert record['order_expire_index'] == message['expire_index']
     record['remaining_amount'] = required_escrow_amount #normalized
