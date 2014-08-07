@@ -1490,15 +1490,20 @@ def serve_api(mongo_db, redis_client):
         return escrow_address
 
     @dispatcher.add_method
-    def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_btc_send_signed_tx):
+    def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_deposit_tx_hash):
         #ensure that the specified escrow address is valid for us
         if not mongo_db.autobtcescrow_addresspool.find_one({'address': escrow_address}):
             raise Exception("The specified escrow address does not exist on this system!")
         
+        if mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash}):
+            raise Exception("Escrow record for txhash '%s' already exists!"  % btc_deposit_tx_hash)
+        
         #broadcast the signed tx server-side and get the txhash
-        btc_deposit_tx_hash = util.call_jsonrpc_api('sendrawtransaction', params=[btc_btc_send_signed_tx,],
-            endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
-        assert not mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash})
+        #btc_deposit_tx_hash = util.call_jsonrpc_api('sendrawtransaction', params=[btc_send_signed_tx,],
+        #    endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
+        #btc_deposit_tx_hash = util.call_jsonrpc_api('broadcast_tx',
+        #    params={'signed_tx_hex': btc_send_signed_tx}, abort_on_error=True)['result']
+        #assert not mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash})
         
         #actually create the escrow record (keep in mind that the referenced btc tx hash may not have
         # propagated at the time this API call is made, so we can't do much with it beyond record it ATM)
