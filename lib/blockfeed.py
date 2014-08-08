@@ -429,6 +429,9 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
                         logging.info("Procesed Trade from tx %s :: %s" % (msg['message_index'], trade))
                     
                     #btc_escrow
+                    logging.error('MSG CATEGORY');
+                    logging.error(msg['category']);
+                    
                     if msg['category'] == 'orders':
                         btc_escrow.parse_order(mongo_db, msg_data, cur_block_index, cur_block)
                     if msg['category'] == 'order_matches':

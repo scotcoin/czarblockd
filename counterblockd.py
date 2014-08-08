@@ -339,7 +339,8 @@ if __name__ == '__main__':
     else:
         config.AUTO_BTC_ESCROW_ENABLE = False
 
-
+    logging.error('AUTO_BTC_ESCROW_ENABLE');
+    logging.error(config.AUTO_BTC_ESCROW_ENABLE);
     ##############
     # THINGS WE SERVE
     

@@ -1542,7 +1542,7 @@ def serve_api(mongo_db, redis_client):
         return result
 
     @dispatcher.add_method
-    def autobtcescrow_get_by_funded_order_match_id(order_match_ids, wallet_id, status='open'):
+    def autobtcescrow_get_by_order_match_id(order_match_ids, wallet_id, status='open'):
         #wallet ID is required to be supplied, and only records that match the order_match_id AND wallet_id will be returned
         #this prevents people from snooping the server
         records = mongo_db.autobtcescrow_orders.find({'order_match_ids': {'$in': order_match_ids}, 'status': status}, {'_id': 0})
