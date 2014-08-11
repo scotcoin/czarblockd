@@ -37,7 +37,7 @@ def parse_order(db, message, cur_block_index, cur_block):
     if not verify_result or verify_result == 'false':
         logging.warn("AutoBTCEscrow: Identity verification failed for escrow record '%s'" % record['_id'])
         record['status'] == 'invalid'
-        record.save()
+        db.autobtcescrow_orders.save(record)
         logging.error('return 4');
         return #user that made the escrow record could not prove that they were the same one that placed the order
 
