@@ -37,5 +37,5 @@ DEFAULT_BACKEND_RPC_PORT_TESTNET = 18333
 AUTOBTCESCROW_ADDRESS_POOL_MAX_SIZE = 100
 AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 6 #number of blocks after a valid order match to make a BTCpay
 
-QUOTE_ASSETS = ['BTC', 'XBTC', 'XCP']
-
+QUOTE_ASSETS = ['BTC', 'XBTC', 'XCP'] # define the priority for quote asset
+MARKET_LIST_QUOTE_ASSETS = ['XCP', 'XBTC', 'BTC'] # define the order in the market list
