@@ -47,6 +47,9 @@ def http_basic_auth_str(username, password):
     return authstr
 
 def is_valid_url(url, suffix='', allow_localhost=False, allow_no_protocol=False):
+    if url is None:
+      return False
+
     regex = re.compile(
         r'^https?://' if not allow_no_protocol else r'^(https?://)?' # http:// or https://
         r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
