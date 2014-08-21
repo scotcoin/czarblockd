@@ -263,7 +263,7 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
                 cur_block['block_time_str'] = cur_block['block_time_obj'].isoformat()
                 
                 #HANDLERS FOR ON EACH NEW BLOCK
-                btc_escrow.on_new_block(mongo_db, cur_block_index, cur_block)
+                btc_escrow.on_new_block(mongo_db, cur_block_index)
             
                 #FOR EACH MESSAGE - parse out response (list of txns, ordered as they appeared in the block)
                 for msg in cur_block['_messages']:
@@ -428,16 +428,6 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
                         mongo_db.trades.insert(trade)
                         logging.info("Procesed Trade from tx %s :: %s" % (msg['message_index'], trade))
                     
-                    #btc_escrow
-                    logging.error('MSG CATEGORY');
-                    logging.error(msg['category']);
-                    
-                    if msg['category'] == 'orders':
-                        btc_escrow.parse_order(mongo_db, msg_data, cur_block_index, cur_block)
-                    if msg['category'] == 'order_matches':
-                        btc_escrow.parse_order_match(mongo_db, msg_data, cur_block_index, cur_block)
-                    if msg['category'] == 'order_expirations':
-                        btc_escrow.parse_order_expiration(mongo_db, msg_data, cur_block_index, cur_block)
                     
                     #broadcast
                     if msg['category'] == 'broadcasts':

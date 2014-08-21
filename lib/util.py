@@ -110,6 +110,13 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
         raise Exception("Got back error from JSON RPC endpoint: %s" % result['error'])
     return result
 
+def bitcoind_rpc(command, params):
+    return util.call_jsonrpc_api(command, 
+                                 params = params,
+                                 endpoint = config.BACKEND_RPC, 
+                                 auth = config.BACKEND_AUTH, 
+                                 abort_on_error = True)['result']
+
 def get_url(url, abort_on_error=False, is_json=True, fetch_timeout=5):
     headers = { 'Connection':'close', } #no keepalive
 

@@ -3,191 +3,237 @@ import logging
 import decimal
 import base64
 import json
+import math
 from datetime import datetime
 
 from lib import config, util, util_bitcoin, blockchain
 
-def parse_order(db, message, cur_block_index, cur_block):
-    logging.error('parse_order');
-    logging.error(message);
+# TODO: use deterministic wallet for the 5 following functions
+def get_new_address(order_tx_hash):
+    new_address = util.bitcoind_rpc('getnewaddress', ['',])
+    return new_address
 
-    if not config.AUTO_BTC_ESCROW_ENABLE:
-        logging.error('return 1');
-        return
-    
-    if 'source' not in message:
-        return
+
+def check_signed_hash(order_source, order_tx_hash, order_signed_tx_hash):
+    # disabled until Bitcore fix message signature
+    # verify_result = util.bitcoind_rpc('verifymessage', [order_source, order_signed_tx_hash, order_tx_hash]) 
+    # return verify_result == 'true'
+    return True
+
+
+def get_escrow_balance(escrow_address, min_conf = 0):
+    wallet_unspent = util.bitcoind_rpc('listunspent', [min_conf, 999999])
+    escrow_balance = sum([output['amount'] for output in wallet_unspent if output['address'] == escrow_address])
+    return util_bitcoin.denormalize_quantity(escrow_balance)
+
+
+def get_escrow_unspent(escrow_address, min_conf = 0):
+    wallet_unspent = util.bitcoind_rpc('listunspent', [min_conf, 999999])
+    return [{'txid': output['txid'], 'vout': output['txid']} for output in wallet_unspent if output['address'] == escrow_address]
+
+
+def send_to_many(inputs, destinations):
+    unsigned_raw_transaction = util.bitcoind_rpc('createrawtransaction', [inputs, destinations])
+    signed_raw_transaction = util.bitcoind_rpc('signrawtransaction', [raw_transaction]);
+    if 'complete' in signed_raw_transaction and signed_raw_transaction['complete'] == 1:
+        return util.bitcoind_rpc('sendrawtransaction', [signed_raw_transaction['hex']])
+    else:
+        return None
+
+
+def create_escrow_info(db, order_source, order_tx_hash, order_signed_tx_hash, wallet_id):
+    cpd_status = util.call_jsonrpc_api("get_running_info", abort_on_error=True)['result']
+    block_index = cpd_status['last_block']
+    if check_signed_hash(order_source, order_tx_hash, order_signed_tx_hash):
+        escrow_info = {
+            'wallet_id': wallet_id,
+            'order_source': order_source,
+            'order_tx_hash': order_tx_hash,
+            'order_signed_tx_hash': order_signed_tx_hash,
+            'created_at': datetime.datetime.utcnow(),
+            'block_index': block_index,
+            'escrow_address': get_new_address(order_tx_hash),
+            'status': 'open', # open, expired, canceled
+            'need_refund': False,
+            'payments': []
+        }
+        db.escrow_infos.insert(escrow_info)
+        return escrow_info
+    else:
+        raise Exception("Invalid signature for transaction hash %s" % order_tx_hash)
+
+
+def make_btcpay(db, order_match, escrow_info):
+
+    order_match_quantity  = order_match['forward_quantity'] if order_match['forward_asset'] == 'BTC' else order_match['backward_quantity']
+    commission = int(ESCROW_COMMISSION * order_match_quantity)
+    previous_commission = sum([p['commission'] for p in escrow_info['payments'] if not p['error']]) # don't use commission for previous order matches
+    required_escrow_amount  = order_match_quantity + config.MIN_FEE + commission + previous_commission
+
+    available_escrow_amount = get_escrow_balance(escrow_info['escrow_address'], min_conf = config.MIN_CONF_FOR_ESCROWED_FUND)
+
+    if available_escrow_amount >= required_escrow_amount:
+        btcpay_params = {
+            'source': escrow_info['escrow_address'],                
+            'order_match_id': order_match['id'],
+            'allow_unconfirmed_inputs': True
+        }
+        payment = {
+            'order_match_id': order_match['id']
+        }
+        try:
+            btcpay_tx_hash = util.call_jsonrpc_api("do_btcpay", btcpay_params)
+            payment['btcpay_tx_hash'] = btcpay_tx_hash
+            payment['commission'] = commission
+            payment['error'] = None
+        except Exception, e:
+            payment['error'] = str(e)
         
-    #determine if we have an auto btc escrow record for this order and merge in information
-    record = db.autobtcescrow_orders.find_one({'order_tx_hash': message['tx_hash']})
-    if not record:
-        logging.error('return 2');
-        return
-    
-    if record['status'] != 'new': #already processed on an earlier parse through
-        logging.error('return 3');
-        return
-    
-    #ensure that the owner of this order was the one that actually submitted this record
-    #verifymessage params: <bitcoinaddress> <signature> <message>
-    verify_result = util.call_jsonrpc_api('verifymessage',
-        params=[message['source'], record['signed_order_tx_hash'], record['order_tx_hash']],
-        endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)
-    logging.warn("AutoBTCEscrow: VERIFICATION RESULT: %s" % (verify_result))
-    if not verify_result or verify_result == 'false':
-        logging.warn("AutoBTCEscrow: Identity verification failed for escrow record '%s'" % record['_id'])
-        record['status'] == 'invalid'
-        db.autobtcescrow_orders.save(record)
-        logging.error('return 4');
-        return #user that made the escrow record could not prove that they were the same one that placed the order
+        escrow_info['payments'].append(payment)
+        db.escrow_infos.save(escrow_info)
 
-    #make sure the specified BTC transaction hash exists and matches required criteria
-    btc_tx_info = blockchain.gettransaction(record['btc_deposit_tx_hash'])
-    if not btc_tx_info:
-        logging.warn("AutoBTCEscrow: Cited BTC deposit txhash (%s) doesn't exist for escrow record '%s'" % (
-            message['btc_deposit_tx_hash'], record['_id']))
-        record['status'] == 'invalid'
-        db.autobtcescrow_orders.save(record)
-        logging.error('return 5');
-        return
-    #(already known this isn't associated with more than this order)
-    #amounts must match of what the order calls for and what the deposit provides, with an output going to the escrow address
-    assert message['give_asset'] == 'BTC'
-    required_escrow_amount = util_bitcoin.normalize_quantity(message['give_quantity'])
-    for output in btc_tx_info['vout']:
-        logging.error(output)
-        if output['scriptPubKey']['reqSigs'] == 1 \
-           and output['scriptPubKey']['type'] == 'pubkeyhash' \
-           and len(output['scriptPubKey']['addresses']) == 1 \
-           and output['scriptPubKey']['addresses'][0] == record['escrow_address'] \
-           and output['value'] == required_escrow_amount:
-            break #found the output...
-    else: #didn't find the output
-        logging.warn("AutoBTCEscrow: Could not find suitable txout in BTC tx hash '%s' for escrow record '%s'" % (
-            message['tx_hash'], record['_id']))
-        record['status'] == 'invalid'
-        db.autobtcescrow_orders.save(record)
-        logging.error('return 6');
-        return
-    
-    record['status'] = 'open'
-    record['source_address'] = message['source']
-    record['order_expire_index'] = message['expire_index']
-    assert record['order_expire_index'] == message['expire_index']
-    record['remaining_amount'] = required_escrow_amount #normalized
-    logging.info("AutoBTCEsrow: Escrow record '%s' successfully created (BTCTxHash: '%s')" % (
-        record['_id'], message['btc_deposit_tx_hash']))
-    db.autobtcescrow_orders.save(record)
+    return escrow_info
 
-def parse_order_match(db, message, cur_block_index, cur_block):
-    logging.error('parse_order_match');
-    logging.error(message);
 
-    if not config.AUTO_BTC_ESCROW_ENABLE:
-        logging.error('return 7');
-        return
-    #is it for a BTC order that requires a BTCpay?
-    if message['status'] != 'pending':
-        logging.error('return 8');
-        return
-    
-    #determine if this is a match for one of the orders we should handle BTCpay for
-    order_tx_hash = message['tx0_hash'] if message['forward_asset'] == 'BTC' else message['tx1_hash']
-    record = db.autobtcescrow_orders.find_one({'order_tx_hash': order_tx_hash})
-    if not record:
-        logging.error('return 9');
-        return
-    if record['status'] != 'open': #skip on reparse
-        logging.error('return 10');
-        return
+def close_escrowed_order(db, escrow_info, status):
+    escrow_info['status'] = status
+    escrow_info['need_refund'] = get_escrow_balance(escrow_info['escrow_address']) > 0
+    db.escrow_infos.save(escrow_info)
 
-    assert record['order_tx_hash'] in [message['tx0_hash'], message['tx1_hash']]
-    assert record['source_address'] == (message['tx0_address'] if record['order_tx_hash'] == message['tx0_hash'] else message['tx1_address'])
-    assert record['remaining_amount'] > 0 #status would be closed otherwise
+
+def get_escrow_infos(db, filters):
+    escrow_infos = db.escrow_infos.find(filters)
+    orders_hashes = []
+    escrow_info_by_tx_hash = {}
+    for escrow_info in escrow_infos:
+        orders_hashes.append(escrow_info['order_tx_hash'])
+        escrow_info_by_tx_hash[escrow_info['order_tx_hash']] = escrow_info
+    return orders_hashes, escrow_info_by_tx_hash
+
+
+def get_open_escrow_infos(db):
+    return get_escrow_infos(db, {'status': 'open'})
+
+
+def get_payable_order_matches(escrowed_order_hashes):
+    tx_hashes_bind = ','.join(['?' for e in range(0,len(escrowed_order_hashes))])
+    sql  = '''SELECT * FROM order_matches WHERE '''
+    sql += '''status = ? AND '''
+    sql += '''(forward_asset = ? OR backward_asset = ?) AND '''
+    sql += '''(tx0_hash IN ({}) OR tx0_hash IN ({})) '''.format(tx_hashes_bind, tx_hashes_bind)
+    sql += '''block_index = ? '''
+    bindings = ['pending', 'BTC', 'BTC', escrowed_order_hashes, escrowed_order_hashes, current_block_index - config.AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY]
+    return util.call_jsonrpc_api('sql', {'query': sql, 'bindings': bindings})['result']
+
+
+def cancel_escrowed_orders(db):
+    orders_hashes, escrow_info_by_tx_hash = get_open_escrow_infos(db)
+    if len(orders_hashes) > 0:
+        filters = [('offer_hash', 'IN', orders_hashes)]
+        canceled_orders = util.call_jsonrpc_api('get_cancels', {'filters': filters})['result']
+        for canceled_order in canceled_orders:
+            close_escrowed_order(db, escrow_info_by_tx_hash[canceled_order['offer_hash']], 'canceled')
+
+
+def expire_escrowed_orders(db):
+    orders_hashes, escrow_info_by_tx_hash = get_open_escrow_infos(db)
+    if len(orders_hashes) > 0:
+        filters = [('order_hash', 'IN', orders_hashes)]
+        expired_orders = util.call_jsonrpc_api('get_order_expirations', {'filters': filters})['result']
+        for expired_order in expired_orders:
+            close_escrowed_order(db, escrow_info_by_tx_hash[expired_order['order_hash']], 'expired')
+
+
+def pay_escrowed_orders(db, current_block_index):
+    orders_hashes, escrow_info_by_tx_hash = get_open_escrow_infos(db)
+    if len(orders_hashes) > 0:
+        order_matches = get_payable_order_matches(orders_hashes)
+        for order_match in order_matches:
+            order_tx_hash = order_match['tx0_hash'] if order_match['forward_asset'] == 'BTC' else order_match['tx1_hash']
+            escrow_info_by_tx_hash[order_tx_hash] = make_btcpay(db, order_match, escrow_info_by_tx_hash[order_tx_hash])
+
+
+def refund_escrowed_orders(db):
     
-    match_btc_amount= util_bitcoin.normalize_quantity(
-        message['forward_quantity'] if message['forward_asset'] == 'BTC' else message['backward_quantity'])
-    if match_btc_amount > record['remaining_amount']:
-        logging.warn("AutoBTCEscrow: Order match for %s BTC exceed remaining amount in escrow (%s BTC) for escrow record '%s'" % (
-            match_btc_amount, record['remaining_amount'], record['_id']))
-        record['status'] == 'invalid' #don't do anything, as the BTC can be refunded via a cancel tx, or order expiration....
-        db.autobtcescrow_orders.save(record)
-        logging.error('return 11');
-        return
+    commission_address = config.ESCROW_COMMISSION_ADDRESS_TESTNET if config.TESTNET else config.ESCROW_COMMISSION_ADDRESS
+    orders_hashes, escrow_info_by_tx_hash = get_escrow_infos(db, {'need_refund': True})
+    inputs = []
+    destinations = {
+        commission_address: 0
+    }
+    total_in = 0
+    total_out = 0
+
+    for order_hash in escrow_info_by_tx_hash:
+        escrow_info = escrow_info_by_tx_hash[order_hash]
+
+        inputs += get_escrow_unspent(escrow_info['escrow_address'])
+
+        refund_address = escrow_info['order_source']
+        if refund_address not in destinations:
+            destinations[refund_address] = 0
+
+        escrowed_amount = get_escrow_balance(escrow_info['escrow_address'])
+        total_in += escrowed_amount
+        commission = sum([p['commission'] for p in escrow_info['payments'] if not p['error']])
+        refund_amount = escrowed_amount - commission
         
-    tx_info = blockchain.gettransaction(record['btc_deposit_tx_hash'])
-    assert tx_info and tx_info['confirmations'] != 0 #the BTC deposit TX must have at least 1 confirm to pay out on it
-    
-    #set up to make the btcpay in N blocks
-    pay_destination = message['tx1_address'] if record['order_tx_hash'] == message['tx0_hash'] else message['tx0_address']
-    db.autobtcescrow_pending_payments.insert({
-        'target_block_index': cur_block_index + config.AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY,
-        'autobtcescrow_order_id': record.id,
-        'order_match_id': message['tx0_hash'] + message['tx1_hash'],
-        'amount': match_btc_amount, #normalized
-        'destination': pay_destination
-    })
-    
-def _parse_order_expiration_or_cancellation(db, message, cur_block_index, cur_block, isCancellation=True):
-    if not config.AUTO_BTC_ESCROW_ENABLE:
-        return
-    
-    record = db.autobtcescrow_orders.find_one({'order_tx_hash': message['order_hash']})
-    if not record:
-        return
-    
-    if record['status'] in ['new', 'filled', 'expired', 'cancelled']:
-        return
-    assert record['status'] in ['open', 'invalid']
-
-    tx_info = blockchain.gettransaction(record['btc_deposit_tx_hash'])    
-
-    do_refund = False
-    if record['status'] == 'open':
-        assert tx_info and tx_info['confirmations'] > 0 #that BTC should def be confirmed by now...
-        assert record['remaining_amount'] <= tx_info['valueOut']
-        assert record['status'] != 'new'
-        assert record['source_address']
-        do_refund = True
-    elif     record['status'] == 'invalid' \
-         and record['remaining_amount'] > 0 \
-         and tx_info and tx_info['confirmations'] > 0:
-        do_refund = True
-
-    if do_refund:    
-        #close out the order and refund any remaining BTC
-        record['status'] = 'cancelled' if isCancellation else 'expired'
-    
-        refund_tx_hash = util.call_jsonrpc_api("do_send", {
-            'source': record['escrow_address'],
-            'destination': record['source_address'],
-            'asset': 'BTC',
-            'quantity': util_bitcoin.denormalize_quantity(record['remaining_amount'])
-        }, abort_on_error=True)['result']
-        record['refund_tx_hash'] = refund_tx_hash
-        db.autobtcescrow_orders.save(record)
+        if refund_amount >= config.REGULAR_DUST_SIZE:
+            destinations[refund_address] += refund_amount
+            total_out += refund_amount
         
-def parse_order_expiration(db, message, cur_block_index, cur_block):
-    return _parse_order_expiration_or_cancellation(db, message, cur_block_index, cur_block, isCancellation=False)
-
-def parse_order_cancellation(db, message, cur_block_index, cur_block):
-    return _parse_order_expiration_or_cancellation(db, message, cur_block_index, cur_block, isCancellation=True)
+        destinations[commission_address] += commission
+        total_out += commission
     
-def on_new_block(db, cur_block_index, cur_block):
-    #see if there are any autobtcescrow transactions we need to make a BTCpay on
-    pending_payments = db.autobtcescrow_pending_payments.find({'target_block_index': cur_block_index})
-    for p in pending_payments:
-        order_record = db.autobtcescrow_orders.find_one({'_id': p['autobtcescrow_order_id']})
-        assert order_record
-        
-        #actually make the BTCpay now...
-        payment_tx_hash = util.call_jsonrpc_api("do_btcpay", {
-            'order_match_id': p['order_match_id']
-        }, abort_on_error=True)['result']
-        
-        #record it
-        order_record['funded_order_matches'].append((p['order_match_id'], payment_tx_hash))
-        db.autobtcescrow_orders.save(order_record)
+    if total_out > config.REGULAR_DUST_SIZE:
+        change_quantity = total_out - total_in # == sum of dust amount
 
-        #remove the pending payment entry now just in case we get an error on future API queries in this loop...
-        db.autobtcescrow_pending_payments.remove({'_id': p['_id']})
+        # fees
+        ouput_size = 34 * len(destinations.keys())
+        input_size = 181 * len(inputs)
+        transaction_size = input_size + ouput_size + 10
+        necessary_fee = (int(transaction_size / 1000) + 1) * config.DEFAULT_FEE_PER_KB
+        missing_fee = necessary_fee - change_quantity
+
+        if missing_fee > 0:
+            # if commission is enought to pay fee
+            if commission >= missing_fee + config.REGULAR_DUST_SIZE:
+                destinations[commission_address] -= missing_fee
+                missing_fee = 0
+            # else we share between users what it's missing
+            else:
+                missing_fee -= destinations[commission_address]
+                del(destinations[commission_address])
+                destination_count = len([address for address in destinations if destinations[address] > config.REGULAR_DUST_SIZE])
+                fee_by_address = int(math.ceil(missing_fee / destination_count))
+                while missing_fee > 0 and destination_count > 0
+                    for address in destinations:
+                        if destinations[address] > config.REGULAR_DUST_SIZE + fee_by_address
+                            destinations[address] -= fee_by_address
+                            missing_fee -= fee_by_address
+                    destination_count = len([address for address in destinations if destinations[address] > config.REGULAR_DUST_SIZE])
+                    fee_by_address = int(math.ceil(missing_fee / destination_count))
+
+        if missing_fee <= 0:
+            refund_error = ''
+            try:
+                refund_tx_hash = send_to_many(inputs, destinations)
+            except Exception, e:
+                refund_error = str(e)
+
+            for order_hash in escrow_info_by_tx_hash:
+                escrow_info = escrow_info_by_tx_hash[order_hash]
+                if refund_error != '':
+                    escrow_info['refund_tx_hash'] = refund_tx_hash
+                else:
+                    escrow_info['refund_error'] = refund_error
+                escrow_info['need_refund'] = False
+                db.escrow_infos.save(escrow_info)
+
+
+def process_new_block(db, current_block_index):
+    cancel_escrowed_orders(db)
+    expire_escrowed_orders(db)
+    pay_escrowed_orders(db, current_block_index)
+    refund_escrowed_orders(db)
+

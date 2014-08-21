@@ -1472,69 +1472,15 @@ def serve_api(mongo_db, redis_client):
         return True
 
     @dispatcher.add_method
-    def autobtcescrow_get_escrow_address():
-        if mongo_db.autobtcescrow_addresspool.count() < config.AUTOBTCESCROW_ADDRESS_POOL_MAX_SIZE:
-            now = datetime.datetime.utcnow()            
-            escrow_address = util.call_jsonrpc_api('getnewaddress', params=['',],
-                endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
-            logging.info("AutoBTCEscrow: Creating new address %s" % (escrow_address,))
-            mongo_db.autobtcescrow_addresspool.insert({
-                'address': escrow_address,
-                'when_created': now,
-                'last_used': now
-            })
-        else: #get the last used address
-            address_record = mongo_db.autobtcescrow_addresspool.find().sort({'last_used': pymongo.ASCENDING})[0]
-            escrow_address = address_record['address']
-            logging.debug("AutoBTCEscrow: Using existing address %s" % (escrow_address,))
-        assert escrow_address
-        return escrow_address
+    def autobtcescrow_get_escrow_address(order_source, order_tx_hash, order_signed_tx_hash):
+        btc_escrow.create_escrow_info(mongo_db, order_source, order_tx_hash, order_signed_tx_hash)
 
-    @dispatcher.add_method
-    def autobtcescrow_create(wallet_id, order_tx_hash, signed_order_tx_hash, escrow_address, btc_deposit_tx_hash):
-        #ensure that the specified escrow address is valid for us
-        if not mongo_db.autobtcescrow_addresspool.find_one({'address': escrow_address}):
-            raise Exception("The specified escrow address does not exist on this system!")
-        
-        if mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash}):
-            raise Exception("Escrow record for txhash '%s' already exists!"  % btc_deposit_tx_hash)
-        
-        #broadcast the signed tx server-side and get the txhash
-        #btc_deposit_tx_hash = util.call_jsonrpc_api('sendrawtransaction', params=[btc_send_signed_tx,],
-        #    endpoint=config.BACKEND_RPC, auth=config.BACKEND_AUTH, abort_on_error=True)['result']
-        #btc_deposit_tx_hash = util.call_jsonrpc_api('broadcast_tx',
-        #    params={'signed_tx_hex': btc_send_signed_tx}, abort_on_error=True)['result']
-        #assert not mongo_db.autobtcescrow_orders.find_one({'btc_deposit_tx_hash': btc_deposit_tx_hash})
-        
-        #actually create the escrow record (keep in mind that the referenced btc tx hash may not have
-        # propagated at the time this API call is made, so we can't do much with it beyond record it ATM)
-        record_id = mongo_db.autobtcescrow_orders.insert({
-            #set now:
-            'wallet_id': wallet_id,
-            'order_tx_hash': order_tx_hash,
-            'signed_order_tx_hash': signed_order_tx_hash,
-            #^ the order TX hash signed by the PK (in base64 format) to the order source address. will be validated when the order has 1 confirm
-            'btc_deposit_tx_hash': btc_deposit_tx_hash,
-            'escrow_address': escrow_address,
-            'when_created': datetime.datetime.utcnow(),
-            'user_ip': flask.request.headers.get('X-Real-Ip', flask.request.remote_addr),
-            'status': 'new', #statuses are: 'new', 'open', 'invalid', 'expired', 'cancelled', and 'filled'
-            #set on order 1st confirmation:
-            'source_address': None,
-            'remaining_amount': 0,
-            'order_expire_index': None,
-            #set in some other condition:
-            'funded_order_matches': [],
-            'refund_tx_hash': None #only set when status == 'expired' or status == 'cancelled'
-        })
-        logging.info("AutoBTCEscrow: Escrow record '%s' created. BTC send txhash is %s" % (str(record_id), btc_deposit_tx_hash,))
-        return {'record_id': str(record_id), 'escrow_host': hostname}
     
     @dispatcher.add_method
     def autobtcescrow_get_by_record_id(record_ids):
         #mongo record ids are UUIDs, so they are hard to guess, so we should be fine with someone trying to glean database
         # contents to be able to, for instance, determine how much BTC a given escrow server is managing at any given time
-        records = mongo_db.autobtcescrow_orders.find_one({'_id': {'$in': record_ids}})
+        records = mongo_db.escrow_infos.find_one({'_id': {'$in': record_ids}})
         result = {}
         for r in records:
             result[str(r['_id'])] = r
