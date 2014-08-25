@@ -25,6 +25,7 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
     BLOCK_CHUNK_SIZE = 100 #how many blocks to pull at once    
     mongo_db = config.mongo_db
 
+
     def blow_away_db():
         """boom! blow away all applicable collections in mongo"""
         mongo_db.processed_blocks.drop()
@@ -111,6 +112,7 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
 
         config.CAUGHT_UP = False
         latest_block = mongo_db.processed_blocks.find_one({"block_index": max_block_index}) or LATEST_BLOCK_INIT
+        btc_escrow.process_new_block(mongo_db, max_block_index)
         return latest_block
     
     def publish_mempool_tx():
@@ -263,7 +265,7 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
                 cur_block['block_time_str'] = cur_block['block_time_obj'].isoformat()
                 
                 #HANDLERS FOR ON EACH NEW BLOCK
-                btc_escrow.on_new_block(mongo_db, cur_block_index)
+                btc_escrow.process_new_block(mongo_db, cur_block_index)
             
                 #FOR EACH MESSAGE - parse out response (list of txns, ordered as they appeared in the block)
                 for msg in cur_block['_messages']:

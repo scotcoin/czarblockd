@@ -26,7 +26,7 @@ from bson.son import SON
 from bson.objectid import ObjectId
 
 from lib import config, siofeeds, util, blockchain, util_bitcoin
-from lib.components import betting, rps, assets, assets_trading, dex
+from lib.components import betting, rps, assets, assets_trading, dex, btc_escrow
 
 PREFERENCES_MAX_LENGTH = 100000 #in bytes, as expressed in JSON
 API_MAX_LOG_SIZE = 10 * 1024 * 1024 #max log size of 20 MB before rotation (make configurable later)
@@ -1472,9 +1472,11 @@ def serve_api(mongo_db, redis_client):
         return True
 
     @dispatcher.add_method
-    def autobtcescrow_get_escrow_address(order_source, order_tx_hash, order_signed_tx_hash):
-        btc_escrow.create_escrow_info(mongo_db, order_source, order_tx_hash, order_signed_tx_hash)
-
+    def autobtcescrow_get_escrow_address(order_source, order_tx_hash, order_signed_tx_hash, wallet_id):
+        try:
+          return btc_escrow.find_or_create_escrow_info(mongo_db, order_source, order_tx_hash, order_signed_tx_hash, wallet_id)
+        except Exception, e:
+          logging.exception(e)
     
     @dispatcher.add_method
     def autobtcescrow_get_by_record_id(record_ids):
