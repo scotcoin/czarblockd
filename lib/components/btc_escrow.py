@@ -66,6 +66,7 @@ def find_or_create_escrow_info(db, order_source, order_tx_hash, order_signed_tx_
                 'escrow_address': get_new_address(order_tx_hash),
                 'status': 'open', # open, expired, canceled
                 'need_refund': False,
+                'refunded': False, # use to get escrowed balance
                 'payments': []
             }
             escrow_info['_id'] = db.escrow_infos.insert(escrow_info)
@@ -73,6 +74,25 @@ def find_or_create_escrow_info(db, order_source, order_tx_hash, order_signed_tx_
             return escrow_info
         else:
             raise Exception("Invalid signature for transaction hash %s" % order_tx_hash)
+
+def get_escrowed_balances(db, wallet_id):
+    escrow_infos = db.escrow_infos.find({'wallet_id': wallet_id, 'refunded': False}, {'_id': 0})
+    results = {}
+    for escrow_info in escrow_infos:
+        escrowed_balance =  get_escrow_balance(escrow_info['escrow_address'])
+        if (escrowed_balance > 0):
+            if escrow_info['order_source'] in results:
+                results[escrow_info['order_source']] += escrowed_balance
+            else:
+                results[escrow_info['order_source']] = escrowed_balance
+    return results
+
+def get_by_order_signed_tx_hashes(db, order_signed_tx_hashes, status='open'):
+    records = db.escrow_infos.find({'order_signed_tx_hash': {'$in': order_signed_tx_hashes}, 'status': status}, {'_id': 0})
+    result = []
+    for r in records:
+        result.append(r)
+    return result
 
 
 def make_btcpay(db, order_match, escrow_info):
@@ -251,6 +271,7 @@ def refund_escrowed_orders(db):
                 escrow_info = escrow_info_by_tx_hash[order_hash]
                 if not refund_error:
                     escrow_info['refund_tx_hash'] = refund_tx_hash
+                    escrow_info['refunded'] = True
                 else:
                     escrow_info['refund_error'] = refund_error
                 escrow_info['need_refund'] = False

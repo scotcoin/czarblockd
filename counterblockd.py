@@ -335,12 +335,11 @@ if __name__ == '__main__':
     if args.auto_btc_escrow_enable:
         config.AUTO_BTC_ESCROW_ENABLE = args.auto_btc_escrow_enable
     elif has_config and configfile.has_option('Default', 'auto-btc-escrow-enable') and configfile.getboolean('Default', 'auto-btc-escrow-enable'):
-        config.AUTO_BTC_ESCROW_ENABLE = configfile.get('Default', 'auto-btc-escrow-enable')
+        config.AUTO_BTC_ESCROW_ENABLE = configfile.getboolean('Default', 'auto-btc-escrow-enable')
     else:
         config.AUTO_BTC_ESCROW_ENABLE = False
 
-    logging.error('AUTO_BTC_ESCROW_ENABLE');
-    logging.error(config.AUTO_BTC_ESCROW_ENABLE);
+
     ##############
     # THINGS WE SERVE
     
