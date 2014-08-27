@@ -112,7 +112,6 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
 
         config.CAUGHT_UP = False
         latest_block = mongo_db.processed_blocks.find_one({"block_index": max_block_index}) or LATEST_BLOCK_INIT
-        btc_escrow.process_new_block(mongo_db, max_block_index)
         return latest_block
     
     def publish_mempool_tx():
