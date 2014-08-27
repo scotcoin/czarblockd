@@ -565,6 +565,8 @@ if __name__ == '__main__':
     csp_violations_logger.addHandler(csp_violations_fileh)
     csp_violations_logger.propagate = False
     
+    logging.info("counterblock Version %s starting ..." % config.VERSION)
+    
     #Load in counterwallet config settings
     #TODO: Hardcode in cw path for now. Will be taken out to a plugin shortly...
     counterwallet_config_path = os.path.join('/home/xcp/counterwallet/counterwallet.conf.json')
@@ -594,6 +596,7 @@ if __name__ == '__main__':
     config.GEOIP = util.init_geoip()
 
     #Connect to mongodb
+    logging.info("Connecting to mongoDB backend ...")
     mongo_client = pymongo.MongoClient(config.MONGODB_CONNECT, config.MONGODB_PORT)
     mongo_db = mongo_client[config.MONGODB_DATABASE] #will create if it doesn't exist
     if config.MONGODB_USER and config.MONGODB_PASSWORD:
@@ -694,6 +697,7 @@ if __name__ == '__main__':
     mongo_db.feeds.ensure_index('owner')
     mongo_db.feeds.ensure_index('category')
     mongo_db.feeds.ensure_index('info_url')
+
     #autobtcescrow_orders
     mongo_db.autobtcescrow_orders.ensure_index('order_tx_hash', unique=True)
     mongo_db.autobtcescrow_orders.ensure_index('btc_deposit_tx_hash', unique=True)
@@ -711,6 +715,9 @@ if __name__ == '__main__':
     mongo_db.autobtcescrow_addresspool.ensure_index('last_used')
     #autobtcescrow_pending_payments
     mongo_db.autobtcescrow_pending_payments.ensure_index('target_block_index')
+
+    #mempool
+    mongo_db.mempool.ensure_index('tx_hash')
 
     #Connect to redis
     if config.REDIS_ENABLE_APICACHE:
