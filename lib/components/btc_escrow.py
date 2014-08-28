@@ -196,7 +196,7 @@ def pay_escrowed_orders(db, current_block_index):
 
 def refund_escrowed_orders(db):
     
-    commission_address = config.ESCROW_COMMISSION_ADDRESS_TESTNET if config.TESTNET else config.ESCROW_COMMISSION_ADDRESS
+    commission_address = config.ESCROW_COMMISSION_ADDRESS
     orders_hashes, escrow_info_by_tx_hash = get_escrow_infos(db, {'need_refund': True})
     if len(orders_hashes) == 0:
         return

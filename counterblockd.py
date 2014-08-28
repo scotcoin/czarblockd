@@ -387,8 +387,8 @@ if __name__ == '__main__':
 
     # don't wait 6 blocks when testnet
     if config.TESTNET:
-        AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 1
-        MIN_CONF_FOR_ESCROWED_FUND = 0
+        config.AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 1
+        config.MIN_CONF_FOR_ESCROWED_FUND = 0
 
  
     ##############
