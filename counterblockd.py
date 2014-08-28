@@ -73,7 +73,16 @@ if __name__ == '__main__':
 
     #enablement (move out to plugins in the future)
     parser.add_argument('--armory-utxsvr-enable', help='enable use of armory_utxsvr service (for signing offline armory txns')
-    parser.add_argument('--auto-btc-escrow-enable', help='enable this counterblockd to act as an auto BTC escrow server')
+
+    #btc escrow machine
+    parser.add_argument('--auto-btc-escrow-machine', help='enable this counterblockd to act as an auto BTC escrow server')
+    parser.add_argument('--auto-btc-escrow-commission', help='commission used by btc escrow machine')
+    parser.add_argument('--auto-btc-escrow-fee-retainer', help='BTCPay fees retaining by the escrow machine')
+    parser.add_argument('--auto-btc-escrow-commission-address', help='Address to send commission')
+    #proxy for btc escrow machine
+    parser.add_argument('--auto-btc-escrow-enable', help='enable this counterblockd to act as a proxy for auto BTC escrow server')
+    parser.add_argument('--auto-btc-escrow-server', help='base url for the auto BTC escrow server')
+
 
     #THINGS WE HOST
     parser.add_argument('--rpc-host', help='the IP of the interface to bind to for providing JSON-RPC API access (0.0.0.0 for all interfaces)')
@@ -331,7 +340,7 @@ if __name__ == '__main__':
     else:
         config.ARMORY_UTXSVR_ENABLE = False
 
-    #auto BTC escrow enablement
+    #auto BTC escrow proxy enablement
     if args.auto_btc_escrow_enable:
         config.AUTO_BTC_ESCROW_ENABLE = args.auto_btc_escrow_enable
     elif has_config and configfile.has_option('Default', 'auto-btc-escrow-enable') and configfile.getboolean('Default', 'auto-btc-escrow-enable'):
@@ -339,7 +348,49 @@ if __name__ == '__main__':
     else:
         config.AUTO_BTC_ESCROW_ENABLE = False
 
+    if args.auto_btc_escrow_server:
+        config.AUTO_BTC_ESCROW_SERVER = args.auto_btc_escrow_server
+    elif has_config and configfile.has_option('Default', 'auto-btc-escrow-server') and configfile.get('Default', 'auto-btc-escrow-server'):
+        config.AUTO_BTC_ESCROW_SERVER = configfile.get('Default', 'auto-btc-escrow-server')
+    elif config.AUTO_BTC_ESCROW_ENABLE:
+        raise Exception("Please specific a BTC escrow server")
 
+    #auto BTC escrow machine enablement
+    if args.auto_btc_escrow_machine:
+        config.AUTO_BTC_ESCROW_MACHINE = args.auto_btc_escrow_machine
+    elif has_config and configfile.has_option('Default', 'auto-btc-escrow-machine') and configfile.getboolean('Default', 'auto-btc-escrow-machine'):
+        config.AUTO_BTC_ESCROW_MACHINE = configfile.getboolean('Default', 'auto-btc-escrow-machine')
+    else:
+        config.AUTO_BTC_ESCROW_MACHINE = False
+
+    if args.auto_btc_escrow_commission:
+        config.ESCROW_COMMISSION = args.auto_btc_escrow_commission
+    elif has_config and configfile.has_option('Default', 'auto-btc-escrow-commission') and configfile.get('Default', 'auto-btc-escrow-commission'):
+        config.ESCROW_COMMISSION = configfile.get('Default', 'auto-btc-escrow-commission')
+    elif config.AUTO_BTC_ESCROW_MACHINE:
+        raise Exception("Please specific a BTC escrow commission")
+
+    # IMPORTANT: private key should be in bitcoind wallet
+    if args.auto_btc_escrow_commission_address:
+        config.ESCROW_COMMISSION_ADDRESS = args.auto_btc_escrow_commission_address
+    elif has_config and configfile.has_option('Default', 'auto-btc-escrow-commission-address') and configfile.get('Default', 'auto-btc-escrow-commission-address'):
+        config.ESCROW_COMMISSION_ADDRESS = configfile.get('Default', 'auto-btc-escrow-commission-address')
+    elif config.AUTO_BTC_ESCROW_MACHINE:
+        raise Exception("Please specific a BTC escrow commission address")
+
+    if args.auto_btc_escrow_fee_retainer:
+        config.BTCPAY_FEE_RETAINER = args.auto_btc_escrow_fee_retainer
+    elif has_config and configfile.has_option('Default', 'auto-btc-escrow-fee-retainer') and configfile.get('Default', 'auto-btc-escrow-fee-retainer'):
+        config.BTCPAY_FEE_RETAINER = configfile.get('Default', 'auto-btc-escrow-fee-retainer')
+    elif config.AUTO_BTC_ESCROW_MACHINE:
+        raise Exception("Please specific a BTC escrow BTCPay fee retainer")
+
+    # don't wait 6 blocks when testnet
+    if config.TESTNET:
+        AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 1
+        MIN_CONF_FOR_ESCROWED_FUND = 0
+
+ 
     ##############
     # THINGS WE SERVE
     

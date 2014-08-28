@@ -279,7 +279,7 @@ def refund_escrowed_orders(db):
 
 
 def process_new_block(db, current_block_index):
-    if config.AUTO_BTC_ESCROW_ENABLE:
+    if config.AUTO_BTC_ESCROW_MACHINE:
         cancel_escrowed_orders(db)
         expire_escrowed_orders(db)
         pay_escrowed_orders(db, current_block_index)

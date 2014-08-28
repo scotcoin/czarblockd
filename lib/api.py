@@ -14,7 +14,7 @@ import urllib
 import functools
 
 from logging import handlers as logging_handlers
-from gevent import wsgi
+from gevent import wsgi, ssl
 from geventhttpclient import HTTPClient
 from geventhttpclient.url import URL
 import flask
@@ -69,10 +69,7 @@ def serve_api(mongo_db, redis_client):
         }
 
         if config.AUTO_BTC_ESCROW_ENABLE:
-            result['auto_btc_escrow'] = {
-                'commission_percentage': config.ESCROW_COMMISSION * 100,
-                'btcpay_fee_retainer': util_bitcoin.normalize_quantity(config.BTCPAY_FEE_RETAINER)
-            }
+            result['auto_btc_escrow'] = proxy_to_autobtcescrow('autobtcescrow_get_config', {})
 
         return result
     
@@ -1483,16 +1480,51 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def autobtcescrow_get_escrow_address(order_source, order_tx_hash, order_signed_tx_hash, wallet_id):
-        return btc_escrow.find_or_create_escrow_info(mongo_db, order_source, order_tx_hash, order_signed_tx_hash, wallet_id)
+        if config.AUTO_BTC_ESCROW_MACHINE:
+            return btc_escrow.find_or_create_escrow_info(mongo_db, order_source, order_tx_hash, order_signed_tx_hash, wallet_id)
+        else:
+            raise Exception("This server is not a BTC Escrow Machine")
     
     @dispatcher.add_method
     def autobtcescrow_get_btc_escrowed_balances(wallet_id):
-        return btc_escrow.get_escrowed_balances(mongo_db, wallet_id)
+        if config.AUTO_BTC_ESCROW_MACHINE:
+            return btc_escrow.get_escrowed_balances(mongo_db, wallet_id)
+        else:
+            raise Exception("This server is not a BTC Escrow Machine")
 
     @dispatcher.add_method
     def autobtcescrow_get_by_order_signed_tx_hashes(order_signed_tx_hashes, status='open'):
-        return btc_escrow.get_by_order_signed_tx_hashes(mongo_db, order_signed_tx_hashes, status)
+        if config.AUTO_BTC_ESCROW_MACHINE:
+            return btc_escrow.get_by_order_signed_tx_hashes(mongo_db, order_signed_tx_hashes, status)
+        else:
+            raise Exception("This server is not a BTC Escrow Machine")
 
+    @dispatcher.add_method
+    def autobtcescrow_get_config():
+        if config.AUTO_BTC_ESCROW_MACHINE:
+            return {
+                'commission_percentage': config.ESCROW_COMMISSION * 100,
+                'btcpay_fee_retainer': util_bitcoin.normalize_quantity(config.BTCPAY_FEE_RETAINER)
+            }
+        else:
+            raise Exception("This server is not a BTC Escrow Machine")
+
+    @dispatcher.add_method
+    def proxy_to_autobtcescrow(method, params):
+        if config.AUTO_BTC_ESCROW_ENABLE:
+            endpoint  = config.AUTO_BTC_ESCROW_SERVER + '/'
+            endpoint += '_t_api' if config.TESTNET else '_api'
+            http_client_params = {
+                'insecure': True,
+                'ssl_options': {'cert_reqs': ssl.CERT_NONE}
+            }
+            return util.call_jsonrpc_api(method, 
+                                    params = params,
+                                    endpoint = endpoint, 
+                                    abort_on_error = True,
+                                    http_client_params = http_client_params)['result']
+        else:
+            raise Exception("BTC Escrow not enabled on this server")
 
     def _set_cors_headers(response):
         if config.RPC_ALLOW_CORS:

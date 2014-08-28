@@ -36,15 +36,9 @@ DEFAULT_COUNTERPARTYD_RPC_PORT_TESTNET = 14000
 DEFAULT_BACKEND_RPC_PORT = 8333
 DEFAULT_BACKEND_RPC_PORT_TESTNET = 18333
 
-AUTOBTCESCROW_ADDRESS_POOL_MAX_SIZE = 100
-AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 1 #number of blocks after a valid order match to make a BTCpay
-MIN_CONF_FOR_ESCROWED_FUND = 0
-
-# private key should be in bitcoind wallet
-ESCROW_COMMISSION_ADDRESS_TESTNET = 'mrssHos2Fn4WKv3PdoXP6A687DG8nd7DTf' 
-ESCROW_COMMISSION_ADDRESS = '19U6MmLLumsqxXSBMB5FgYXbezgXYC6Gpe'
-ESCROW_COMMISSION = 0.005
-BTCPAY_FEE_RETAINER = 100000;
+# escrow btc machine config
+AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 6 #number of blocks after a valid order match to make a BTCpay
+MIN_CONF_FOR_ESCROWED_FUND = 5
 
 QUOTE_ASSETS = ['BTC', 'XBTC', 'XCP'] # define the priority for quote asset
 MARKET_LIST_QUOTE_ASSETS = ['XCP', 'XBTC', 'BTC'] # define the order in the market list

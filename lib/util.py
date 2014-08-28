@@ -76,7 +76,7 @@ def assets_to_asset_pair(asset1, asset2):
         
     return (base, quote)
 
-def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_error=False):
+def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_error=False, http_client_params={}):
     if not endpoint: endpoint = config.COUNTERPARTYD_RPC
     if not auth: auth = config.COUNTERPARTYD_AUTH
     if not params: params = {}
@@ -97,10 +97,15 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
     
     try:
         u = URL(endpoint)
-        client = HTTPClient.from_url(u, connection_timeout=JSONRPC_API_REQUEST_TIMEOUT,
-            network_timeout=JSONRPC_API_REQUEST_TIMEOUT)
+        client_kwargs = {
+            'connection_timeout': JSONRPC_API_REQUEST_TIMEOUT,
+            'network_timeout': JSONRPC_API_REQUEST_TIMEOUT
+        }
+        client_kwargs.update(http_client_params)
+        client = HTTPClient.from_url(u, **client_kwargs)
         r = client.post(u.request_uri, body=json.dumps(payload), headers=headers)
     except Exception, e:
+        logging.exception(e)
         raise Exception("Got request error to JSON RPC endpoint: %s" % e)
     else:
         if r.status_code != 200 and abort_on_error:
