@@ -75,12 +75,12 @@ if __name__ == '__main__':
     parser.add_argument('--armory-utxsvr-enable', help='enable use of armory_utxsvr service (for signing offline armory txns')
 
     #btc escrow machine
-    parser.add_argument('--auto-btc-escrow-machine', help='enable this counterblockd to act as an auto BTC escrow server')
-    parser.add_argument('--auto-btc-escrow-commission', help='commission used by btc escrow machine')
-    parser.add_argument('--auto-btc-escrow-fee-retainer', help='BTCPay fees retaining by the escrow machine')
+    parser.add_argument('--auto-btc-escrow-machine', action='store_true', default=False, help='enable this counterblockd to act as an auto BTC escrow server')
+    parser.add_argument('--auto-btc-escrow-commission', type=float, help='commission used by btc escrow machine')
+    parser.add_argument('--auto-btc-escrow-fee-retainer', type=int, help='BTCPay fees retaining by the escrow machine')
     parser.add_argument('--auto-btc-escrow-commission-address', help='Address to send commission')
     #proxy for btc escrow machine
-    parser.add_argument('--auto-btc-escrow-enable', help='enable this counterblockd to act as a proxy for auto BTC escrow server')
+    parser.add_argument('--auto-btc-escrow-enable', action='store_true', default=False, help='enable this counterblockd to act as a proxy for auto BTC escrow server')
     parser.add_argument('--auto-btc-escrow-server', help='base url for the auto BTC escrow server')
 
 
@@ -364,9 +364,9 @@ if __name__ == '__main__':
         config.AUTO_BTC_ESCROW_MACHINE = False
 
     if args.auto_btc_escrow_commission:
-        config.ESCROW_COMMISSION = args.auto_btc_escrow_commission
+        config.ESCROW_COMMISSION = float(args.auto_btc_escrow_commission)
     elif has_config and configfile.has_option('Default', 'auto-btc-escrow-commission') and configfile.get('Default', 'auto-btc-escrow-commission'):
-        config.ESCROW_COMMISSION = configfile.get('Default', 'auto-btc-escrow-commission')
+        config.ESCROW_COMMISSION = float(configfile.get('Default', 'auto-btc-escrow-commission'))
     elif config.AUTO_BTC_ESCROW_MACHINE:
         raise Exception("Please specific a BTC escrow commission")
 
@@ -379,7 +379,7 @@ if __name__ == '__main__':
         raise Exception("Please specific a BTC escrow commission address")
 
     if args.auto_btc_escrow_fee_retainer:
-        config.BTCPAY_FEE_RETAINER = args.auto_btc_escrow_fee_retainer
+        config.BTCPAY_FEE_RETAINER = int(args.auto_btc_escrow_fee_retainer)
     elif has_config and configfile.has_option('Default', 'auto-btc-escrow-fee-retainer') and configfile.get('Default', 'auto-btc-escrow-fee-retainer'):
         config.BTCPAY_FEE_RETAINER = configfile.get('Default', 'auto-btc-escrow-fee-retainer')
     elif config.AUTO_BTC_ESCROW_MACHINE:
