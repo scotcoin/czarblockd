@@ -82,7 +82,8 @@ if __name__ == '__main__':
     #proxy for btc escrow machine
     parser.add_argument('--auto-btc-escrow-enable', action='store_true', default=False, help='enable this counterblockd to act as a proxy for auto BTC escrow server')
     parser.add_argument('--auto-btc-escrow-server', help='base url for the auto BTC escrow server')
-
+    #Vending machine provider
+    parser.add_argument('--vending-machine-provider', help='JSON url containing vending machines list')
 
     #THINGS WE HOST
     parser.add_argument('--rpc-host', help='the IP of the interface to bind to for providing JSON-RPC API access (0.0.0.0 for all interfaces)')
@@ -389,6 +390,13 @@ if __name__ == '__main__':
     if config.TESTNET:
         config.AUTOBTCESCROW_NUM_BLOCKS_FOR_BTCPAY = 1
         config.MIN_CONF_FOR_ESCROWED_FUND = 0
+
+    if args.vending_machine_provider:
+        config.VENDING_MACHINE_PROVIDER = args.vending_machine_provider
+    elif has_config and configfile.has_option('Default', 'vending-machine-provider') and configfile.get('Default', 'vending-machine-provider'):
+        config.VENDING_MACHINE_PROVIDER = configfile.get('Default', 'vending-machine-provider')
+    else:
+        config.VENDING_MACHINE_PROVIDER = None
 
  
     ##############
