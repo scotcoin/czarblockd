@@ -256,6 +256,20 @@ def process_cpd_blockfeed(zmq_publisher_eventfeed):
                 logging.warn(str(e) + " Waiting 3 seconds before trying again...")
                 time.sleep(3)
                 continue
+
+            cur_block['block_time_obj'] = datetime.datetime.utcfromtimestamp(cur_block['block_time'])
+            cur_block['block_time_str'] = cur_block['block_time_obj'].isoformat()
+            
+            try:
+                block_data = util.call_jsonrpc_api("get_messages",
+                    {'block_index': cur_block_index}, abort_on_error=True)['result']
+            except Exception, e:
+                logging.warn(str(e) + " Waiting 5 seconds before trying again...")
+                time.sleep(5)
+                continue
+
+            # clean api cache
+            util.clean_block_cache(cur_block_index)
             
             for cur_block in blocks_chunk:
                 cur_block_index = cur_block['block_index']

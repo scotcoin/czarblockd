@@ -25,6 +25,7 @@ from PIL import Image
 import dateutil.parser
 import calendar
 import pygeoip
+import hashlib
 
 from jsonschema import FormatChecker, Draft4Validator, FormatError
 # not needed here but to ensure that installed
@@ -288,6 +289,7 @@ def decorate_message_for_feed(msg, msg_data=None):
     message['_message_index'] = msg['message_index']
     message['_command'] = msg['command']
     message['_block_index'] = msg['block_index']
+    message['_block_time'] = get_block_time(msg['block_index'])
     message['_category'] = msg['category']
     message['_status'] = msg_data.get('status', 'valid')
     message = decorate_message(message)
@@ -485,4 +487,38 @@ def download_geoip_data():
 def init_geoip():
     download_geoip_data();
     return pygeoip.GeoIP(os.path.join(config.DATA_DIR, 'GeoIP.dat'))
+
+def block_cache(func):
+    def cached_function(*args, **kwargs):
+        
+        function_signature = hashlib.sha256(func.__name__ + str(args) + str(kwargs)).hexdigest()
+
+        sql = "SELECT block_index FROM blocks ORDER BY block_index DESC LIMIT 1"
+        block_index = call_jsonrpc_api('sql', {'query': sql, 'bindings': []})['result'][0]['block_index']
+
+        cached_result = config.mongo_db.counterblockd_cache.find_one({'block_index': block_index, 'function': function_signature})
+
+        if not cached_result:
+            #logging.info("generate cache ({}, {}, {})".format(func.__name__, block_index, function_signature))
+            try:
+                result = func(*args, **kwargs)
+                config.mongo_db.counterblockd_cache.insert({
+                    'block_index': block_index, 
+                    'function': function_signature,
+                    'result': json.dumps(result)
+                })
+                return result
+            except Exception, e:
+                logging.exception(e)
+        else:
+            #logging.info("result from cache ({}, {}, {})".format(func.__name__, block_index, function_signature))
+            result = json.loads(cached_result['result'])
+            return result
+            
+    return cached_function
+
+
+def clean_block_cache(block_index):
+    #logging.info("clean block cache lower than {}".format(block_index))
+    config.mongo_db.counterblockd_cache.remove({'block_index': {'$lt': block_index}})
 
