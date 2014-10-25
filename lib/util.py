@@ -100,7 +100,7 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
     
     try:
         u = URL(endpoint)
-        print(u)
+        print(headers['Authorization'])
         client = HTTPClient.from_url(u, connection_timeout=JSONRPC_API_REQUEST_TIMEOUT,
             network_timeout=JSONRPC_API_REQUEST_TIMEOUT)
         r = client.post(u.request_uri, body=json.dumps(payload), headers=headers)
