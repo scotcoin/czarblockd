@@ -1,9 +1,9 @@
 
-#dependencies for counterblockd
-#counterblockd currently uses Python 2.7 due to gevent-socketio's lack of support for Python 3
+#dependencies for czarblockd
+#czarblockd currently uses Python 2.7 due to gevent-socketio's lack of support for Python 3
 
 #############
-#similar/same deps as with counterpartyd
+#similar/same deps as with czarpartyd
 
 appdirs==1.2.0
 #helps locate OS-specific directories (user data dir, etc)
@@ -19,7 +19,7 @@ json-rpc==1.6.0
 pytest==2.5.1
 
 #############
-#counterblockd specific deps
+#czarblockd specific deps
 
 pycoin==0.42
 

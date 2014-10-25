@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 """
-counterblockd server
+czarblockd server
 """
 
 #import before importing other modules
@@ -33,12 +33,12 @@ from lib import (config, api, events, blockfeed, siofeeds, util)
 
 if __name__ == '__main__':
     # Parse command-line arguments.
-    parser = argparse.ArgumentParser(prog='counterblockd', description='Counterwallet daemon. Works with counterpartyd')
-    parser.add_argument('-V', '--version', action='version', version="counterblockd v%s" % config.VERSION)
+    parser = argparse.ArgumentParser(prog='czarblockd', description='Counterwallet daemon. Works with czarpartyd')
+    parser.add_argument('-V', '--version', action='version', version="czarblockd v%s" % config.VERSION)
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False, help='sets log level to DEBUG instead of WARNING')
 
-    parser.add_argument('--reparse', action='store_true', default=False, help='force full re-initialization of the counterblockd database')
-    parser.add_argument('--testnet', action='store_true', default=False, help='use Bitcoin testnet addresses and block numbers')
+    parser.add_argument('--reparse', action='store_true', default=False, help='force full re-initialization of the czarblockd database')
+    parser.add_argument('--testnet', action='store_true', default=False, help='use Czarcoin testnet addresses and block numbers')
     parser.add_argument('--data-dir', help='specify to explicitly override the directory in which to keep the config file and log file')
     parser.add_argument('--config-file', help='the location of the configuration file')
     parser.add_argument('--log-file', help='the location of the log file')
@@ -46,10 +46,10 @@ if __name__ == '__main__':
     parser.add_argument('--pid-file', help='the location of the pid file')
 
     #THINGS WE CONNECT TO
-    parser.add_argument('--counterpartyd-rpc-connect', help='the hostname of the counterpartyd JSON-RPC server')
-    parser.add_argument('--counterpartyd-rpc-port', type=int, help='the port used to communicate with counterpartyd over JSON-RPC')
-    parser.add_argument('--counterpartyd-rpc-user', help='the username used to communicate with counterpartyd over JSON-RPC')
-    parser.add_argument('--counterpartyd-rpc-password', help='the password used to communicate with counterpartyd over JSON-RPC')
+    parser.add_argument('--czarpartyd-rpc-connect', help='the hostname of the czarpartyd JSON-RPC server')
+    parser.add_argument('--czarpartyd-rpc-port', type=int, help='the port used to communicate with czarpartyd over JSON-RPC')
+    parser.add_argument('--czarpartyd-rpc-user', help='the username used to communicate with czarpartyd over JSON-RPC')
+    parser.add_argument('--czarpartyd-rpc-password', help='the password used to communicate with czarpartyd over JSON-RPC')
 
     parser.add_argument('--blockchain-service-name', help='the blockchain service name to connect to')
     parser.add_argument('--blockchain-service-connect', help='the blockchain service server URL base to connect to, if not default')
@@ -72,12 +72,12 @@ if __name__ == '__main__':
 
     #THINGS WE HOST
     parser.add_argument('--rpc-host', help='the IP of the interface to bind to for providing JSON-RPC API access (0.0.0.0 for all interfaces)')
-    parser.add_argument('--rpc-port', type=int, help='port on which to provide the counterblockd JSON-RPC API')
+    parser.add_argument('--rpc-port', type=int, help='port on which to provide the czarblockd JSON-RPC API')
     parser.add_argument('--rpc-allow-cors', action='store_true', default=True, help='Allow ajax cross domain request')
-    parser.add_argument('--socketio-host', help='the interface on which to host the counterblockd socket.io API')
-    parser.add_argument('--socketio-port', type=int, help='port on which to provide the counterblockd socket.io API')
-    parser.add_argument('--socketio-chat-host', help='the interface on which to host the counterblockd socket.io chat API')
-    parser.add_argument('--socketio-chat-port', type=int, help='port on which to provide the counterblockd socket.io chat API')
+    parser.add_argument('--socketio-host', help='the interface on which to host the czarblockd socket.io API')
+    parser.add_argument('--socketio-port', type=int, help='port on which to provide the czarblockd socket.io API')
+    parser.add_argument('--socketio-chat-host', help='the interface on which to host the czarblockd socket.io chat API')
+    parser.add_argument('--socketio-chat-port', type=int, help='port on which to provide the czarblockd socket.io chat API')
 
     parser.add_argument('--rollbar-token', help='the API token to use with rollbar (leave blank to disable rollbar integration)')
     parser.add_argument('--rollbar-env', help='the environment name for the rollbar integration (if enabled). Defaults to \'production\'')
@@ -89,14 +89,14 @@ if __name__ == '__main__':
 
     # Data directory
     if not args.data_dir:
-        config.DATA_DIR = appdirs.user_data_dir(appauthor='Counterparty', appname='counterblockd', roaming=True)
+        config.DATA_DIR = appdirs.user_data_dir(appauthor='Czarparty', appname='czarblockd', roaming=True)
     else:
         config.DATA_DIR = args.data_dir
     if not os.path.isdir(config.DATA_DIR): os.mkdir(config.DATA_DIR)
 
     #Read config file
     configfile = ConfigParser.ConfigParser()
-    config_path = os.path.join(config.DATA_DIR, 'counterblockd.conf')
+    config_path = os.path.join(config.DATA_DIR, 'czarblockd.conf')
     configfile.read(config_path)
     has_config = configfile.has_section('Default')
 
@@ -114,48 +114,48 @@ if __name__ == '__main__':
     ##############
     # THINGS WE CONNECT TO
 
-    # counterpartyd RPC host
-    if args.counterpartyd_rpc_connect:
-        config.COUNTERPARTYD_RPC_CONNECT = args.counterpartyd_rpc_connect
-    elif has_config and configfile.has_option('Default', 'counterpartyd-rpc-connect') and configfile.get('Default', 'counterpartyd-rpc-connect'):
-        config.COUNTERPARTYD_RPC_CONNECT = configfile.get('Default', 'counterpartyd-rpc-connect')
+    # czarpartyd RPC host
+    if args.czarpartyd_rpc_connect:
+        config.CZARPARTYD_RPC_CONNECT = args.czarpartyd_rpc_connect
+    elif has_config and configfile.has_option('Default', 'czarpartyd-rpc-connect') and configfile.get('Default', 'czarpartyd-rpc-connect'):
+        config.CZARPARTYD_RPC_CONNECT = configfile.get('Default', 'czarpartyd-rpc-connect')
     else:
-        config.COUNTERPARTYD_RPC_CONNECT = 'localhost'
+        config.CZARPARTYD_RPC_CONNECT = 'localhost'
 
-    # counterpartyd RPC port
-    if args.counterpartyd_rpc_port:
-        config.COUNTERPARTYD_RPC_PORT = args.counterpartyd_rpc_port
-    elif has_config and configfile.has_option('Default', 'counterpartyd-rpc-port') and configfile.get('Default', 'counterpartyd-rpc-port'):
-        config.COUNTERPARTYD_RPC_PORT = configfile.get('Default', 'counterpartyd-rpc-port')
+    # czarpartyd RPC port
+    if args.czarpartyd_rpc_port:
+        config.CZARPARTYD_RPC_PORT = args.czarpartyd_rpc_port
+    elif has_config and configfile.has_option('Default', 'czarpartyd-rpc-port') and configfile.get('Default', 'czarpartyd-rpc-port'):
+        config.CZARPARTYD_RPC_PORT = configfile.get('Default', 'czarpartyd-rpc-port')
     else:
         if config.TESTNET:
-            config.COUNTERPARTYD_RPC_PORT = 14000
+            config.CZARPARTYD_RPC_PORT = 14000
         else:
-            config.COUNTERPARTYD_RPC_PORT = 4000
+            config.CZARPARTYD_RPC_PORT = 4000
     try:
-        config.COUNTERPARTYD_RPC_PORT = int(config.COUNTERPARTYD_RPC_PORT)
-        assert int(config.COUNTERPARTYD_RPC_PORT) > 1 and int(config.COUNTERPARTYD_RPC_PORT) < 65535
+        config.CZARPARTYD_RPC_PORT = int(config.CZARPARTYD_RPC_PORT)
+        assert int(config.CZARPARTYD_RPC_PORT) > 1 and int(config.CZARPARTYD_RPC_PORT) < 65535
     except:
-        raise Exception("Please specific a valid port number counterpartyd-rpc-port configuration parameter")
+        raise Exception("Please specific a valid port number czarpartyd-rpc-port configuration parameter")
             
-    # counterpartyd RPC user
-    if args.counterpartyd_rpc_user:
-        config.COUNTERPARTYD_RPC_USER = args.counterpartyd_rpc_user
-    elif has_config and configfile.has_option('Default', 'counterpartyd-rpc-user') and configfile.get('Default', 'counterpartyd-rpc-user'):
-        config.COUNTERPARTYD_RPC_USER = configfile.get('Default', 'counterpartyd-rpc-user')
+    # czarpartyd RPC user
+    if args.czarpartyd_rpc_user:
+        config.CZARPARTYD_RPC_USER = args.czarpartyd_rpc_user
+    elif has_config and configfile.has_option('Default', 'czarpartyd-rpc-user') and configfile.get('Default', 'czarpartyd-rpc-user'):
+        config.CZARPARTYD_RPC_USER = configfile.get('Default', 'czarpartyd-rpc-user')
     else:
-        config.COUNTERPARTYD_RPC_USER = 'rpcuser'
+        config.CZARPARTYD_RPC_USER = 'rpcuser'
 
-    # counterpartyd RPC password
-    if args.counterpartyd_rpc_password:
-        config.COUNTERPARTYD_RPC_PASSWORD = args.counterpartyd_rpc_password
-    elif has_config and configfile.has_option('Default', 'counterpartyd-rpc-password') and configfile.get('Default', 'counterpartyd-rpc-password'):
-        config.COUNTERPARTYD_RPC_PASSWORD = configfile.get('Default', 'counterpartyd-rpc-password')
+    # czarpartyd RPC password
+    if args.czarpartyd_rpc_password:
+        config.CZARPARTYD_RPC_PASSWORD = args.czarpartyd_rpc_password
+    elif has_config and configfile.has_option('Default', 'czarpartyd-rpc-password') and configfile.get('Default', 'czarpartyd-rpc-password'):
+        config.CZARPARTYD_RPC_PASSWORD = configfile.get('Default', 'czarpartyd-rpc-password')
     else:
-        config.COUNTERPARTYD_RPC_PASSWORD = 'rpcpassword'
+        config.CZARPARTYD_RPC_PASSWORD = 'rpcpassword'
 
-    config.COUNTERPARTYD_RPC = 'http://' + config.COUNTERPARTYD_RPC_CONNECT + ':' + str(config.COUNTERPARTYD_RPC_PORT) + '/api/'
-    config.COUNTERPARTYD_AUTH = (config.COUNTERPARTYD_RPC_USER, config.COUNTERPARTYD_RPC_PASSWORD) if (config.COUNTERPARTYD_RPC_USER and config.COUNTERPARTYD_RPC_PASSWORD) else None
+    config.CZARPARTYD_RPC = 'http://' + config.CZARPARTYD_RPC_CONNECT + ':' + str(config.CZARPARTYD_RPC_PORT) + '/api/'
+    config.CZARPARTYD_AUTH = (config.CZARPARTYD_RPC_USER, config.CZARPARTYD_RPC_PASSWORD) if (config.CZARPARTYD_RPC_USER and config.CZARPARTYD_RPC_PASSWORD) else None
 
     # blockchain service name
     if args.blockchain_service_name:
@@ -202,9 +202,9 @@ if __name__ == '__main__':
         config.MONGODB_DATABASE = configfile.get('Default', 'mongodb-database')
     else:
         if config.TESTNET:
-            config.MONGODB_DATABASE = 'counterblockd_testnet'
+            config.MONGODB_DATABASE = 'czarblockd_testnet'
         else:
-            config.MONGODB_DATABASE = 'counterblockd'
+            config.MONGODB_DATABASE = 'czarblockd'
 
     # mongodb user
     if args.mongodb_user:
@@ -381,14 +381,14 @@ if __name__ == '__main__':
     elif has_config and configfile.has_option('Default', 'log-file'):
         config.LOG = configfile.get('Default', 'log-file')
     else:
-        config.LOG = os.path.join(config.DATA_DIR, 'counterblockd.log')
+        config.LOG = os.path.join(config.DATA_DIR, 'czarblockd.log')
         
     if args.tx_log_file:
         config.TX_LOG = args.tx_log_file
     elif has_config and configfile.has_option('Default', 'tx-log-file'):
         config.TX_LOG = configfile.get('Default', 'tx-log-file')
     else:
-        config.TX_LOG = os.path.join(config.DATA_DIR, 'counterblockd-tx.log')
+        config.TX_LOG = os.path.join(config.DATA_DIR, 'czarblockd-tx.log')
     
 
     # PID
@@ -397,7 +397,7 @@ if __name__ == '__main__':
     elif has_config and configfile.has_option('Default', 'pid-file'):
         config.PID = configfile.get('Default', 'pid-file')
     else:
-        config.PID = os.path.join(config.DATA_DIR, 'counterblockd.pid')
+        config.PID = os.path.join(config.DATA_DIR, 'czarblockd.pid')
 
      # ROLLBAR INTEGRATION
     if args.rollbar_token:
@@ -412,7 +412,7 @@ if __name__ == '__main__':
     elif has_config and configfile.has_option('Default', 'rollbar-env'):
         config.ROLLBAR_ENV = configfile.get('Default', 'rollbar-env')
     else:
-        config.ROLLBAR_ENV = 'counterblockd-production'
+        config.ROLLBAR_ENV = 'czarblockd-production'
         
     #support email
     if args.support_email:
@@ -434,11 +434,11 @@ if __name__ == '__main__':
         config.EMAIL_SERVER = "localhost"
 
     # current dir
-    config.COUNTERBLOCKD_DIR = os.path.dirname(os.path.realpath(__file__))
+    config.CZARBLOCKD_DIR = os.path.dirname(os.path.realpath(__file__))
 
     # initialize json schema for json asset and feed validation
-    config.ASSET_SCHEMA = json.load(open(os.path.join(config.COUNTERBLOCKD_DIR, 'schemas', 'asset.schema.json')))
-    config.FEED_SCHEMA = json.load(open(os.path.join(config.COUNTERBLOCKD_DIR, 'schemas', 'feed.schema.json')))
+    config.ASSET_SCHEMA = json.load(open(os.path.join(config.CZARBLOCKD_DIR, 'schemas', 'asset.schema.json')))
+    config.FEED_SCHEMA = json.load(open(os.path.join(config.CZARBLOCKD_DIR, 'schemas', 'feed.schema.json')))
 
     #Create/update pid file
     pid = str(os.getpid())
@@ -488,11 +488,11 @@ if __name__ == '__main__':
     tx_logger.addHandler(tx_fileh)
     tx_logger.propagate = False
     
-    logging.info("counterblock Version %s starting ..." % config.VERSION)
+    logging.info("czarblock Version %s starting ..." % config.VERSION)
     
     #Load in counterwallet config settings
     #TODO: Hardcode in cw path for now. Will be taken out to a plugin shortly...
-    counterwallet_config_path = os.path.join('/home/xcp/counterwallet/counterwallet.conf.json')
+    counterwallet_config_path = os.path.join('/home/xzr/counterwallet/counterwallet.conf.json')
     if os.path.exists(counterwallet_config_path):
         logging.info("Loading counterwallet config at '%s'" % counterwallet_config_path)
         with open(counterwallet_config_path) as f:
@@ -580,9 +580,9 @@ if __name__ == '__main__':
     #asset_extended_info
     mongo_db.asset_extended_info.ensure_index('asset', unique=True)
     mongo_db.asset_extended_info.ensure_index('info_status')
-    #btc_open_orders
-    mongo_db.btc_open_orders.ensure_index('when_created')
-    mongo_db.btc_open_orders.ensure_index('order_tx_hash', unique=True)
+    #czr_open_orders
+    mongo_db.czr_open_orders.ensure_index('when_created')
+    mongo_db.czr_open_orders.ensure_index('order_tx_hash', unique=True)
     #transaction_stats
     mongo_db.transaction_stats.ensure_index([ #blockfeed.py, api.py
         ("when", pymongo.ASCENDING),
@@ -651,7 +651,7 @@ if __name__ == '__main__':
         resource="socket.io", policy_server=False)
     sio_server.start() #start the socket.io server greenlets
 
-    logging.info("Starting up counterpartyd block feed poller...")
+    logging.info("Starting up czarpartyd block feed poller...")
     gevent.spawn(blockfeed.process_cpd_blockfeed, zmq_publisher_eventfeed)
 
     #start up event timers that don't depend on the feed being fully caught up
@@ -659,8 +659,8 @@ if __name__ == '__main__':
     gevent.spawn(events.check_blockchain_service)
     logging.debug("Starting event timer: expire_stale_prefs")
     gevent.spawn(events.expire_stale_prefs)
-    logging.debug("Starting event timer: expire_stale_btc_open_order_records")
-    gevent.spawn(events.expire_stale_btc_open_order_records)
+    logging.debug("Starting event timer: expire_stale_czr_open_order_records")
+    gevent.spawn(events.expire_stale_czr_open_order_records)
     logging.debug("Starting event timer: generate_wallet_stats")
     gevent.spawn(events.generate_wallet_stats)
 
@@ -669,7 +669,7 @@ if __name__ == '__main__':
     
     #print some user friendly startup warnings as need be
     if not config.SUPPORT_EMAIL:
-        logging.warn("Support email setting not set: To enable, please specify an email for the 'support-email' setting in your counterblockd.conf")
+        logging.warn("Support email setting not set: To enable, please specify an email for the 'support-email' setting in your czarblockd.conf")
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

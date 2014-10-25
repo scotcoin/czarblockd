@@ -27,8 +27,8 @@ def denormalize_quantity(quantity, divisible=True):
         return int(quantity * config.UNIT)
     else: return quantity
 
-def get_btc_supply(normalize=False, at_block_index=None):
-    """returns the total supply of BTC (based on what bitcoind says the current block height is)"""
+def get_czr_supply(normalize=False, at_block_index=None):
+    """returns the total supply of CZR (based on what czarcoind says the current block height is)"""
     block_count = config.CURRENT_BLOCK_INDEX if at_block_index is None else at_block_index
     blocks_remaining = block_count
     total_supply = 0 
@@ -49,4 +49,4 @@ def pubkey_to_address(pubkey_hex):
     compressed = encoding.is_sec_compressed(sec)
     public_pair = encoding.sec_to_public_pair(sec)
     address_prefix = b'\x6f' if config.TESTNET else b'\x00'
-    return encoding.public_pair_to_bitcoin_address(public_pair, compressed=compressed, address_prefix=address_prefix)
+    return encoding.public_pair_to_czarcoin_address(public_pair, compressed=compressed, address_prefix=address_prefix)

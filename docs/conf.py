@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# counterblockd documentation build configuration file, created by
+# czarblockd documentation build configuration file, created by
 # sphinx-quickstart on Mon Jan 20 01:01:29 2014.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -40,8 +40,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'counterblockd'
-copyright = u'2014, Counterparty Team'
+project = u'czarblockd'
+copyright = u'2014, Counterparty Team, Treefunder Incorporated'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -164,7 +164,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'counterblockddoc'
+htmlhelp_basename = 'czarblockddoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -183,8 +183,8 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'counterblockd.tex', u'counterblockd Documentation',
-   u'Counterparty Team', 'manual'),
+  ('index', 'czarblockd.tex', u'czarblockd Documentation',
+   u'Czarparty Team', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -213,8 +213,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'counterblockd', u'counterblockd Documentation',
-     [u'Counterparty Team'], 1)
+    ('index', 'czarblockd', u'czarblockd Documentation',
+     [u'Czarparty Team'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -227,8 +227,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'counterblockd', u'counterblockd Documentation',
-   u'Counterparty Team', 'counterblockd', 'Counterblock daemon.',
+  ('index', 'czarblockd', u'czarblockd Documentation',
+   u'Czarparty Team', 'czarblockd', 'Czarblock daemon.',
    'Miscellaneous'),
 ]
 

@@ -38,7 +38,7 @@ def serialize_unsigned_tx(unsigned_tx_hex, public_key_hex):
 
 @dispatcher.add_method
 def convert_signed_tx_to_raw_hex(signed_tx_ascii):
-    """Converts a signed tx from armory's offline format to a raw hex tx that bitcoind can broadcast/use"""
+    """Converts a signed tx from armory's offline format to a raw hex tx that czarcoind can broadcast/use"""
     print("REQUEST(convert_signed_tx_to_raw_hex) -- signed_tx_ascii:\n'%s'\n" % (signed_tx_ascii,))
 
     try:
@@ -89,11 +89,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Armory offline transaction generator daemon')
     parser.add_argument('--testnet', action='store_true', help='Run for testnet')
     args = parser.parse_args()
-    btcdir = "/home/xcp/.bitcoin%s/" % ('-testnet/testnet3' if args.testnet else '')
+    czrdir = "/home/xzr/.czarcoin%s/" % ('-testnet/testnet3' if args.testnet else '')
 
     print("**** Initializing armory ...")
     #require armory to be installed, adding the configured armory path to PYTHONPATH
-    TheBDM.btcdir = btcdir
+    TheBDM.czrdir = czrdir
     TheBDM.setBlocking(True)
     TheBDM.setOnlineMode(True)
     blockchainUpdaterThread = ArmoryBlockchainUpdaterThread()

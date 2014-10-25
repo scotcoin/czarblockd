@@ -5,7 +5,7 @@ import base64
 import json
 from datetime import datetime
 
-from lib import config, util, util_bitcoin
+from lib import config, util, util_czarcoin
 
 ASSET_MAX_RETRY = 3
 D = decimal.Decimal
@@ -90,7 +90,7 @@ def parse_issuance(db, message, cur_block_index, cur_block):
                 'divisible': message['divisible'],
                 'locked': False,
                 'total_issued': message['quantity'],
-                'total_issued_normalized': util_bitcoin.normalize_quantity(message['quantity'], message['divisible']),
+                'total_issued_normalized': util_czarcoin.normalize_quantity(message['quantity'], message['divisible']),
                 '_history': [] #to allow for block rollbacks
             }
             db.tracked_assets.insert(tracked_asset)
@@ -107,11 +107,11 @@ def parse_issuance(db, message, cur_block_index, cur_block):
                  },
                  "$inc": {
                      'total_issued': message['quantity'],
-                     'total_issued_normalized': util_bitcoin.normalize_quantity(message['quantity'], message['divisible'])
+                     'total_issued_normalized': util_czarcoin.normalize_quantity(message['quantity'], message['divisible'])
                  },
                  "$push": {'_history': tracked_asset} }, upsert=False)
             logging.info("Adding additional %s quantity for asset %s" % (
-                util_bitcoin.normalize_quantity(message['quantity'], message['divisible']), message['asset']))
+                util_czarcoin.normalize_quantity(message['quantity'], message['divisible']), message['asset']))
     return True
 
 def inc_fetch_retry(db, asset, max_retry=ASSET_MAX_RETRY, new_status='error', errors=[]):
@@ -209,62 +209,62 @@ def get_escrowed_balances(addresses):
             FROM orders
             WHERE source IN ({}) AND status = ? AND give_asset != ?
             GROUP BY source_asset'''.format(addresses_holder)
-    bindings = addresses + ['open', 'BTC']
+    bindings = addresses + ['open', 'CZR']
     results = util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT (tx0_address || '_' || forward_asset) AS source_asset, tx0_address AS address, forward_asset AS asset, SUM(forward_quantity) AS quantity
              FROM order_matches
              WHERE tx0_address IN ({}) AND forward_asset != ? AND status = ?
              GROUP BY source_asset'''.format(addresses_holder)
-    bindings = addresses + ['BTC', 'pending']
+    bindings = addresses + ['CZR', 'pending']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT (tx1_address || '_' || backward_asset) AS source_asset, tx1_address AS address, backward_asset AS asset, SUM(backward_quantity) AS quantity
              FROM order_matches
              WHERE tx1_address IN ({}) AND backward_asset != ? AND status = ?
              GROUP BY source_asset'''.format(addresses_holder)
-    bindings = addresses + ['BTC', 'pending']
+    bindings = addresses + ['CZR', 'pending']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT source AS address, '{}' AS asset, SUM(wager_remaining) AS quantity
              FROM bets
              WHERE source IN ({}) AND status = ?
-             GROUP BY address'''.format(config.XCP, addresses_holder)
+             GROUP BY address'''.format(config.XZR, addresses_holder)
     bindings = addresses + ['open']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT tx0_address AS address, '{}' AS asset, SUM(forward_quantity) AS quantity
              FROM bet_matches
              WHERE tx0_address IN ({}) AND status = ?
-             GROUP BY address'''.format(config.XCP, addresses_holder)
+             GROUP BY address'''.format(config.XZR, addresses_holder)
     bindings = addresses + ['pending']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT tx1_address AS address, '{}' AS asset, SUM(backward_quantity) AS quantity
              FROM bet_matches
              WHERE tx1_address IN ({}) AND status = ?
-             GROUP BY address'''.format(config.XCP, addresses_holder)
+             GROUP BY address'''.format(config.XZR, addresses_holder)
     bindings = addresses + ['pending']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT source AS address, '{}' AS asset, SUM(wager) AS quantity
              FROM rps
              WHERE source IN ({}) AND status = ?
-             GROUP BY address'''.format(config.XCP, addresses_holder)
+             GROUP BY address'''.format(config.XZR, addresses_holder)
     bindings = addresses + ['open']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT tx0_address AS address, '{}' AS asset, SUM(wager) AS quantity
              FROM rps_matches
              WHERE tx0_address IN ({}) AND status IN (?, ?, ?)
-             GROUP BY address'''.format(config.XCP, addresses_holder)
+             GROUP BY address'''.format(config.XZR, addresses_holder)
     bindings = addresses + ['pending', 'pending and resolved', 'resolved and pending']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 
     sql = '''SELECT tx1_address AS address, '{}' AS asset, SUM(wager) AS quantity
              FROM rps_matches
              WHERE tx1_address IN ({}) AND status IN (?, ?, ?)
-             GROUP BY address'''.format(config.XCP, addresses_holder)
+             GROUP BY address'''.format(config.XZR, addresses_holder)
     bindings = addresses + ['pending', 'pending and resolved', 'resolved and pending']
     results += util.call_jsonrpc_api("sql", {'query': sql, 'bindings': bindings}, abort_on_error=True)['result']
 

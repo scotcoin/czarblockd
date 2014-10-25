@@ -11,7 +11,7 @@ Interacting with the API
 Connecting to the API
 ----------------------
 
-By default, ``counterblockd`` will listen on port ``4001`` for API
+By default, ``czarblockd`` will listen on port ``4001`` for API
 requests. API requests are made via a HTTP POST request to ``/api/``, with JSON-encoded
 data passed as the POST body. For more information on JSON RPC, please see the `JSON RPC specification <http://json-rpc.org/wiki/specification>`__.
 
@@ -34,7 +34,7 @@ Return Types
 wallet IDs
 ^^^^^^^^^^^
 
-An individual Counterwallet user needs a way to identify themselves to ``counterblockd`` for things like storing
+An individual Counterwallet user needs a way to identify themselves to ``czarblockd`` for things like storing
 and retrieving their wallet preferences data, and more.
 
 For this purpose, we define the concept of a wallet ID, which is simply the user's Counterwallet 12-word password,
@@ -96,7 +96,7 @@ Asset Functions
    :param asset2: An asset
    :param limit: Max # of records to return
    :return: Market info for the given pair
-   :rtype: {'24h_vol_in_btc', 'open_orders_count', 'lowest_ask', 'base_asset', 'completed_trades_count', '24h_pct_change', 'vol_quote', 'highest_bid', '24h_vol_in_xcp', 'vol_base', 'last_updated', 'quote_asset'}
+   :rtype: {'24h_vol_in_czr', 'open_orders_count', 'lowest_ask', 'base_asset', 'completed_trades_count', '24h_pct_change', 'vol_quote', 'highest_bid', '24h_vol_in_xzr', 'vol_base', 'last_updated', 'quote_asset'}
 
 .. function:: get_balance_history(asset, addresses, normalize=True, start_ts=None, end_ts=None)
 
@@ -135,32 +135,32 @@ Asset Functions
 
   :param list assets: Assets to check
   :return: Array
-  :rtype: {'24h_hlc_in_btc', 'extended_description', 'extended_pgpsig', 'aggregated_price_as_btc', 'price_in_btc', '24h_summary':{'vol', 'count'}, 'market_cap_in_btc', 'asset', 'price_as_xcp', '7d_history_in_btc':[[ts, price]], '24h_vol_price_change_in_xcp', 'price_in_xcp', 'extended_website', '24h_vol_price_change_in_btc', 'aggregated_price_as_xcp', 'market_cap_in_xcp', '7d_history_in_xcp':[[ts, price]], 'aggregated_price_in_btc', 'aggregated_price_in_xcp', 'price_as_btc', 'total_supply', '24h_ohlc_xcp', 'extended_image'}
+  :rtype: {'24h_hlc_in_czr', 'extended_description', 'extended_pgpsig', 'aggregated_price_as_czr', 'price_in_czr', '24h_summary':{'vol', 'count'}, 'market_cap_in_czr', 'asset', 'price_as_xzr', '7d_history_in_czr':[[ts, price]], '24h_vol_price_change_in_xzr', 'price_in_xzr', 'extended_website', '24h_vol_price_change_in_czr', 'aggregated_price_as_xzr', 'market_cap_in_xzr', '7d_history_in_xzr':[[ts, price]], 'aggregated_price_in_czr', 'aggregated_price_in_xzr', 'price_as_czr', 'total_supply', '24h_ohlc_xzr', 'extended_image'}
 
 .. function:: get_market_info_leaderboard(limit=100)
 
   :param limit: Number of results to return
   :return: Array
   :rtype: {base_currency:[{
-                                     '24h_ohlc_in_btc',
+                                     '24h_ohlc_in_czr',
                                      'total_supply',
-                                     'aggregated_price_in_btc',
-                                     'price_in_btc',
-                                     '24h_vol_price_change_in_xcp',
-                                     'aggregated_price_in_xcp',
+                                     'aggregated_price_in_czr',
+                                     'price_in_czr',
+                                     '24h_vol_price_change_in_xzr',
+                                     'aggregated_price_in_xzr',
                                      '24h_summary: {'vol', 'count'},
-                                     'price_in_xcp',
-                                     'price_as_btc',
-                                     'market_cap_in_btc',
-                                     '24h_ohlc_in_xcp',
-                                     '24h_vol_price_change_in_btc',
-                                     'aggregated_price_as_xcp',
-                                     'market_cap_in_xcp',
+                                     'price_in_xzr',
+                                     'price_as_czr',
+                                     'market_cap_in_czr',
+                                     '24h_ohlc_in_xzr',
+                                     '24h_vol_price_change_in_czr',
+                                     'aggregated_price_as_xzr',
+                                     'market_cap_in_xzr',
                                      'asset',
-                                     'price_as_xcp',
-                                     '7d_history_in_xcp',
-                                     '7d_history_in_btc',
-                                     'aggregated_price_as_btc'}]}
+                                     'price_as_xzr',
+                                     '7d_history_in_xzr',
+                                     '7d_history_in_czr',
+                                     'aggregated_price_as_czr'}]}
 
 .. function:: get_market_details(asset1, asset2, min_fee_provided=0.95, max_fee_required=0.95)
 
@@ -225,7 +225,7 @@ Asset Functions
 
 .. function:: get_normalized_balances(addresses)
 
-  This call augments counterpartyd's get_balances with a normalized_quantity field. It also will include any owned assets for an address, even if their balance is zero. NOTE: Does not retrieve BTC balance. Use get_address_info for that.
+  This call augments czarpartyd's get_balances with a normalized_quantity field. It also will include any owned assets for an address, even if their balance is zero. NOTE: Does not retrieve CZR balance. Use get_address_info for that.
 
   :param list addresses: List of addresses to check
   :return: List
@@ -234,7 +234,7 @@ Asset Functions
 .. function:: get_order_book_buysell(buy_asset, sell_asset, pct_fee_provided=None, pct_fee_required=None)
 
    .. deprecated:: 1.5
-      Use counterpartyd's `get_orders`
+      Use czarpartyd's `get_orders`
 
 
    :param buy_asset: Asset
@@ -275,7 +275,7 @@ Asset Functions
 .. function:: get_order_book_simple(asset1, asset2, min_pct_fee_provided=None, max_pct_fee_required=None)
 
     .. deprecated:: 1.5
-      Use counterpartyd's `get_orders`
+      Use czarpartyd's `get_orders`
 
     Easier to call version when you want all orders involving the two assets.
 
@@ -382,7 +382,7 @@ Betting Functions
 
 .. function:: get_feed(address_or_url='')
 
-  :param address_or_url: Feed URL or Bitcoin Address
+  :param address_or_url: Feed URL or Czarcoin Address
   :rtype: {'broadcasts':[{'status', 'tx_hash', 'locked', 'timestamp', 'source', 'text', 'tx_index', 'value', 'block_index', 'fee_fraction_int'}], 'counters':{'bets':[]}
 
 .. function:: get_feeds_by_source(addresses=[])
@@ -520,7 +520,7 @@ Message Functions
 
 .. function:: get_messagefeed_messages_by_index(message_indexes)
 
-  Alias for counterpartyd get_messages_by_index
+  Alias for czarpartyd get_messages_by_index
 
   :param list message_indexs: Message IDs to fetch
   :return: A list of messages
@@ -621,24 +621,24 @@ Action/Write API Function Reference
 -----------------------------------
 
 
-.. function:: cancel_btc_open_order(wallet_id, order_tx_hash)
+.. function:: cancel_czr_open_order(wallet_id, order_tx_hash)
 
     .. deprecated:: 1.5
 
 
-.. function:: proxy_to_counterpartyd(method='', params={})
+.. function:: proxy_to_czarpartyd(method='', params={})
 
-  :param method: Method name to call in counterpartyd.
+  :param method: Method name to call in czarpartyd.
   :param params: Array of function parameters.
-  :returns: The method response from counterpartyd
+  :returns: The method response from czarpartyd
 
-  Relays a request to the counterpartyd server, with the given method and params, and returns the result. See the `counterpartyd API documentation <http://counterpartyd.readthedocs.org/en/latest/API.html>`_ for available methods.
+  Relays a request to the czarpartyd server, with the given method and params, and returns the result. See the `czarpartyd API documentation <http://czarpartyd.readthedocs.org/en/latest/API.html>`_ for available methods.
 
-.. function:: record_btc_open_order(wallet_id, order_tx_hash)
+.. function:: record_czr_open_order(wallet_id, order_tx_hash)
 
-  Records an association between a wallet ID and order TX ID for a trade where BTC is being SOLD, to allow
-  buyers to see which sellers of the BTC are "online" (which can lead to a better result as a BTCpay will be required
-  to complete any trades where BTC is involved, and the seller (or at least their wallet) must be online for this to happen.
+  Records an association between a wallet ID and order TX ID for a trade where CZR is being SOLD, to allow
+  buyers to see which sellers of the CZR are "online" (which can lead to a better result as a CZRpay will be required
+  to complete any trades where CZR is involved, and the seller (or at least their wallet) must be online for this to happen.
 
 .. function:: store_chat_handle(wallet_id, handle)
 
@@ -668,7 +668,7 @@ An object that stores the Counterwallet preferences for the given wallet ID.
 * **num_addresses_used** (*integer*): The number of addresses utilized in the user's wallet (this
   determines how many addresses we will deterministally generate when the user logs in).
 * **address_aliases** (*list*): A list of zero or objects, with each object having an ``address`` string property,
-  being the Bitcoin base56 address, and an ``alias`` string property, being the textual alias (i.e. nickname)
+  being the Czarcoin base56 address, and an ``alias`` string property, being the textual alias (i.e. nickname)
   for this address. Using aliases helps make the wallet more user-friendly.
 
 
@@ -676,7 +676,7 @@ An object that stores the Counterwallet preferences for the given wallet ID.
 API Changes
 -------------
 
-This section documents any changes to the ``counterblockd`` API, for version numbers where there were API-level modifications.
+This section documents any changes to the ``czarblockd`` API, for version numbers where there were API-level modifications.
 
 1.5
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -684,7 +684,7 @@ This section documents any changes to the ``counterblockd`` API, for version num
 
 **Summary:** Deprecated several redundant/unused functions for removal in a future version. Any code calling these functions should be re-written. Refer to the documentation of the individual functions for replacements.
 
-* ``cancel_btc_open_order``
+* ``cancel_czr_open_order``
 * ``get_asset_pair_market_info``
 * ``get_base_quote_asset``
 * ``get_chain_block_height``

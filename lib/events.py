@@ -42,16 +42,16 @@ def expire_stale_prefs():
     #call again in 1 day
     gevent.spawn_later(86400, expire_stale_prefs)
 
-def expire_stale_btc_open_order_records():
+def expire_stale_czr_open_order_records():
     mongo_db = config.mongo_db
     min_when_created = time.mktime((datetime.datetime.utcnow() - datetime.timedelta(days=15)).timetuple())
     
-    num_stale_records = config.mongo_db.btc_open_orders.find({'when_created': {'$lt': min_when_created}}).count()
-    mongo_db.btc_open_orders.remove({'when_created': {'$lt': min_when_created}})
-    if num_stale_records: logging.warn("REMOVED %i stale BTC open order objects" % num_stale_records)
+    num_stale_records = config.mongo_db.czr_open_orders.find({'when_created': {'$lt': min_when_created}}).count()
+    mongo_db.czr_open_orders.remove({'when_created': {'$lt': min_when_created}})
+    if num_stale_records: logging.warn("REMOVED %i stale CZR open order objects" % num_stale_records)
     
     #call again in 1 day
-    gevent.spawn_later(86400, expire_stale_btc_open_order_records)
+    gevent.spawn_later(86400, expire_stale_czr_open_order_records)
     
 def generate_wallet_stats():
     """

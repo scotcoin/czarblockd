@@ -1,10 +1,10 @@
-counterblockd
+czarblockd
 ==================================================
 
-``counterblockd`` features a full-fledged JSON RPC-based API, which services Counterwallet, as well as any
+``czarblockd`` features a full-fledged JSON RPC-based API, which services Counterwallet, as well as any
 3rd party services which wish to use it.
 
-``counterblockd`` provides additional services to Counterwallet beyond those offered in the API provided by ``counterpartyd``.
+``czarblockd`` provides additional services to Counterwallet beyond those offered in the API provided by ``czarpartyd``.
 
 Such services include:
 
