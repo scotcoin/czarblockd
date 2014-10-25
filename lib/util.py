@@ -88,7 +88,8 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
       "method": method,
       "params": params,
     }
-    print(method)
+    # debug the method
+    #print(method)
     headers = {
         'Content-Type': 'application/json; charset=UTF-8',
         'Accept': 'application/json, text/javascript',
@@ -100,7 +101,8 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
     
     try:
         u = URL(endpoint)
-        print(auth[1])
+        # debug the auth - bingo!
+        # print(auth[1])
         client = HTTPClient.from_url(u, connection_timeout=JSONRPC_API_REQUEST_TIMEOUT,
             network_timeout=JSONRPC_API_REQUEST_TIMEOUT)
         r = client.post(u.request_uri, body=json.dumps(payload), headers=headers)
