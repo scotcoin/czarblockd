@@ -89,7 +89,7 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
       "params": params,
     }
     headers = {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=UTF-8',
         'Connection':'close', #no keepalive
     }
     if auth:

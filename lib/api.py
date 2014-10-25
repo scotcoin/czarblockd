@@ -150,17 +150,6 @@ def serve_api(mongo_db, redis_client):
         mappings = {}
         result = util.call_jsonrpc_api("get_balances",
             {'filters': filters, 'filterop': 'or'}, abort_on_error=True)['result']
-        #results = []
-        #offset = 0
-        #limit = 1000
-        #while True:
-        #    result = util.call_jsonrpc_api("get_balances",
-        #        {'filters': filters, 'filterop': 'or', 'offset': offset, 'limit': limit}, abort_on_error=True)['result']
-        #    results += result
-        #    if len(result) >= limit:
-        #        offset += len(result)
-        #    else:
-        #        break
 
         isowner = {}
         owned_assets = mongo_db.tracked_assets.find( { '$or': [{'owner': a } for a in addresses] }, { '_history': 0, '_id': 0 } )
@@ -169,8 +158,6 @@ def serve_api(mongo_db, redis_client):
 
         data = []
         for d in result:
-        #mappings = {}
-        #for d in results:
             if not d['quantity'] and ((d['address'] + d['asset']) not in isowner):
                 continue #don't include balances with a zero asset value
             asset_info = mongo_db.tracked_assets.find_one({'asset': d['asset']})
