@@ -131,7 +131,7 @@ if __name__ == '__main__':
         if config.TESTNET:
             config.CZARPARTYD_RPC_PORT = 14000
         else:
-            config.CZARPARTYD_RPC_PORT = 4000
+            config.CZARPARTYD_RPC_PORT = 7700
     try:
         config.CZARPARTYD_RPC_PORT = int(config.CZARPARTYD_RPC_PORT)
         assert int(config.CZARPARTYD_RPC_PORT) > 1 and int(config.CZARPARTYD_RPC_PORT) < 65535
