@@ -48,5 +48,5 @@ def pubkey_to_address(pubkey_hex):
     sec = binascii.unhexlify(pubkey_hex)
     compressed = encoding.is_sec_compressed(sec)
     public_pair = encoding.sec_to_public_pair(sec)
-    address_prefix = b'\x6f' if config.TESTNET else b'\x00'
+    address_prefix = b'\x0f' if config.TESTNET else b'\x00'
     return encoding.public_pair_to_czarcoin_address(public_pair, compressed=compressed, address_prefix=address_prefix)
