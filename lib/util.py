@@ -33,14 +33,6 @@ import strict_rfc3339, rfc3987, aniso8601
 
 from lib import config, util_czarcoin
 
-# Attempt to enable urllib3's SNI support, if possible
-try:
-    from .packages.urllib3.contrib import pyopenssl
-    pyopenssl.inject_into_urllib3()
-    _ssl_backend = 'PyOpenSSL'
-except ImportError:
-    _ssl_backend = 'stdlib'
-    
 JSONRPC_API_REQUEST_TIMEOUT = 10 #in seconds 
 D = decimal.Decimal
 
@@ -108,6 +100,8 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
         u = URL(endpoint)
         client = HTTPClient.from_url(u, connection_timeout=JSONRPC_API_REQUEST_TIMEOUT,
             network_timeout=JSONRPC_API_REQUEST_TIMEOUT)
+        if u.scheme == "https": client_kwargs['ssl_options'] = {'cert_reqs': gevent.ssl.CERT_NONE}
+        client = HTTPClient.from_url(u, **client_kwargs)
         r = client.post(u.request_uri, body=json.dumps(payload), headers=headers)
     except Exception, e:
         raise Exception("Got call_jsonrpc_api request error: %s" % e)
