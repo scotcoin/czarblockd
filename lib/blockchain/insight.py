@@ -9,7 +9,7 @@ def get_host():
     if config.BLOCKCHAIN_SERVICE_CONNECT:
         return config.BLOCKCHAIN_SERVICE_CONNECT
     else:
-        return 'http://localhost:4000' if config.TESTNET else 'https://insight.czarcoin.co'
+        return 'https://insight.czarcoin.co' if config.TESTNET else 'https://insight.czarcoin.co'
 
 def check():
     result = util.get_url(get_host() + '/api/sync/', abort_on_error=True)
