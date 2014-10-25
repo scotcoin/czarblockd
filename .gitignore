@@ -45,3 +45,8 @@ schema.py
 
 #Docs 
 docs/_build
+
+# Czarblockd data
+data
+data/*
+settings.py
