@@ -150,14 +150,13 @@ def serve_api(mongo_db, redis_client):
         #mappings = {}
         #result = util.call_jsonrpc_api("get_balances",
         #    {'filters': filters, 'filterop': 'or'}, abort_on_error=True)['result']
-		results = []
+        results = []
         offset = 0
         limit = 1000
         while True:
             result = util.call_jsonrpc_api("get_balances",
                 {'filters': filters, 'filterop': 'or', 'offset': offset, 'limit': limit}, abort_on_error=True)['result']
             results += result
-
             if len(result) >= limit:
                 offset += len(result)
             else:
