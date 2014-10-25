@@ -373,7 +373,7 @@ if __name__ == '__main__':
     if config.TESTNET:
         config.BLOCK_FIRST = 154908
     else:
-        config.BLOCK_FIRST = 278270
+        config.BLOCK_FIRST = 4911
 
     # Log
     if args.log_file:

@@ -16,17 +16,17 @@ MARKET_PRICE_DERIVE_NUM_POINTS = 8 #number of last trades over which to derive t
 # NOTE: These constants must match those in czarpartyd/lib/config.py
 REGULAR_DUST_SIZE = 5430
 MULTISIG_DUST_SIZE = 5430 * 2
-ORDER_BTC_DUST_LIMIT_CUTOFF = MULTISIG_DUST_SIZE
+ORDER_CZR_DUST_LIMIT_CUTOFF = MULTISIG_DUST_SIZE
 
 mongo_db = None #will be set on server init
 
-BTC = 'BTC'
-XCP = 'XCP'
+CZR = 'CZR'
+XZR = 'XZR'
 
 MAX_REORG_NUM_BLOCKS = 10 #max reorg we'd likely ever see
 
 ARMORY_UTXSVR_PORT_MAINNET = 6590
 ARMORY_UTXSVR_PORT_TESTNET = 6591
 
-QUOTE_ASSETS = ['BTC', 'XBTC', 'XCP'] # define the priority for quote asset
-MARKET_LIST_QUOTE_ASSETS = ['XCP', 'XBTC', 'BTC'] # define the order in the market list
+QUOTE_ASSETS = ['CZR', 'XCZR', 'XZR'] # define the priority for quote asset
+MARKET_LIST_QUOTE_ASSETS = ['XZR', 'XCZR', 'CZR'] # define the order in the market list
