@@ -33,6 +33,14 @@ import strict_rfc3339, rfc3987, aniso8601
 
 from lib import config, util_czarcoin
 
+# Attempt to enable urllib3's SNI support, if possible
+try:
+    from .packages.urllib3.contrib import pyopenssl
+    pyopenssl.inject_into_urllib3()
+    _ssl_backend = 'PyOpenSSL'
+except ImportError:
+    _ssl_backend = 'stdlib'
+    
 JSONRPC_API_REQUEST_TIMEOUT = 10 #in seconds 
 D = decimal.Decimal
 
