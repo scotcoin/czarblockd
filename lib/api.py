@@ -64,10 +64,10 @@ def serve_api(mongo_db, redis_client):
         }
         
     @dispatcher.add_method
-    def get_asset_names(params=[]):
+    def get_asset_names():
         #result = util.call_jsonrpc_api(method, params)
         #return proxy_to_czarpartyd('get_asset_names', params=[])
-        result = util.call_jsonrpc_api('get_asset_names', params=[])
+        result = util.call_jsonrpc_api('get_asset_names')
         return result['result']
     
     @dispatcher.add_method
