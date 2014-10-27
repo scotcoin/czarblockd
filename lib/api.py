@@ -62,6 +62,13 @@ def serve_api(mongo_db, redis_client):
             'quote_assets': config.QUOTE_ASSETS,
             'quick_buy_enable': True if config.VENDING_MACHINE_PROVIDER is not None else False
         }
+        
+    @dispatcher.add_method
+    def get_asset_names():
+        cursor = db.cursor()
+        names = [row['asset'] for row in cursor.execute("SELECT DISTINCT asset FROM issuances WHERE status = 'valid' ORDER BY asset ASC")]
+        cursor.close()
+        return names
     
     @dispatcher.add_method
     def get_reflected_host_info():
