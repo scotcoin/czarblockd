@@ -67,7 +67,7 @@ def serve_api(mongo_db, redis_client):
     def get_asset_names():
         #result = util.call_jsonrpc_api(method, params)
         #return proxy_to_czarpartyd('get_asset_names', params=[])
-        result = util.call_jsonrpc_api('get_asset_names')
+        result = util.call_jsonrpc_api("get_asset_names")
         print( result )
         return result['result']
     
