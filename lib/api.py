@@ -62,12 +62,6 @@ def serve_api(mongo_db, redis_client):
             'quote_assets': config.QUOTE_ASSETS,
             'quick_buy_enable': True if config.VENDING_MACHINE_PROVIDER is not None else False
         }
-        
-    @dispatcher.add_method
-    def get_asset_names():
-        result = util.call_jsonrpc_api("get_asset_names")['result']
-        print( result )
-        return result['result']
     
     @dispatcher.add_method
     def get_reflected_host_info():
