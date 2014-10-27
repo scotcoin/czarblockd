@@ -65,10 +65,7 @@ def serve_api(mongo_db, redis_client):
         
     @dispatcher.add_method
     def get_asset_names():
-        cursor = db.cursor()
-        names = [row['asset'] for row in cursor.execute("SELECT DISTINCT asset FROM issuances WHERE status = 'valid' ORDER BY asset ASC")]
-        cursor.close()
-        return names
+        return proxy_to_czarpartyd('get_asset_names', params=[])
     
     @dispatcher.add_method
     def get_reflected_host_info():
