@@ -116,6 +116,7 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def get_chain_txns_status(txn_hashes):
+        print(txn_hashes)
         if not isinstance(txn_hashes, list):
             raise Exception("txn_hashes must be a list of txn hashes, even if it just contains one hash")
         results = []
@@ -129,7 +130,6 @@ def serve_api(mongo_db, redis_client):
                     'confirmations': tx_info.get('confirmations', 0), #not provided if not confirmed on network
                     'blocktime': tx_info.get('time', None),
                 })
-        print( results )
         return results
 
     @dispatcher.add_method
