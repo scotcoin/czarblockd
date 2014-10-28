@@ -121,7 +121,6 @@ def serve_api(mongo_db, redis_client):
         results = []
         for tx_hash in txn_hashes:
             tx_info = blockchain.gettransaction(tx_hash)
-            print(tx_info)
             if tx_info:
                 assert tx_info['txid'] == tx_hash
                 results.append({
