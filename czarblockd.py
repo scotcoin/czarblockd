@@ -492,7 +492,7 @@ if __name__ == '__main__':
     
     #Load in counterwallet config settings
     #TODO: Hardcode in cw path for now. Will be taken out to a plugin shortly...
-    counterwallet_config_path = os.path.join('/home/xzr/counterwallet/counterwallet.conf.json')
+    counterwallet_config_path = os.path.join('/home/ceo/czarwallet/livenet/czarwallet.conf.json')
     if os.path.exists(counterwallet_config_path):
         logging.info("Loading counterwallet config at '%s'" % counterwallet_config_path)
         with open(counterwallet_config_path) as f:
