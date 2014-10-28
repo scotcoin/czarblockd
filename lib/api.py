@@ -116,12 +116,12 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def get_chain_txns_status(txn_hashes):
-        print(txn_hashes)
         if not isinstance(txn_hashes, list):
             raise Exception("txn_hashes must be a list of txn hashes, even if it just contains one hash")
         results = []
         for tx_hash in txn_hashes:
             tx_info = blockchain.gettransaction(tx_hash)
+            print(tx_info)
             if tx_info:
                 assert tx_info['txid'] == tx_hash
                 results.append({
