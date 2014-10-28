@@ -129,6 +129,7 @@ def serve_api(mongo_db, redis_client):
                     'confirmations': tx_info.get('confirmations', 0), #not provided if not confirmed on network
                     'blocktime': tx_info.get('time', None),
                 })
+        print( results )
         return results
 
     @dispatcher.add_method
